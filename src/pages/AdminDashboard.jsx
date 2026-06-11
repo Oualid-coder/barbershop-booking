@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
-import { initOneSignal } from '../lib/onesignal'
+import { initOneSignal, getNotificationPermission, requestPushPermission } from '../lib/onesignal'
 import {
   generateTimeSlots,
   getDayOfWeek,
@@ -897,12 +897,24 @@ function QRView() {
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('today')
-  const [barber, setBarber]       = useState(undefined)
+  const [activeTab, setActiveTab]       = useState('today')
+  const [barber, setBarber]             = useState(undefined)
+  const [notifPerm, setNotifPerm]       = useState(getNotificationPermission)
   const { session } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => { initOneSignal() }, [])
+
+  useEffect(() => {
+    function onPermissionChange() { setNotifPerm(getNotificationPermission()) }
+    window.addEventListener('onesignal:permissionChange', onPermissionChange)
+    return () => window.removeEventListener('onesignal:permissionChange', onPermissionChange)
+  }, [])
+
+  async function handleEnableNotifications() {
+    await requestPushPermission()
+    setNotifPerm(getNotificationPermission())
+  }
 
   useEffect(() => {
     if (!session) return
@@ -962,8 +974,20 @@ export default function AdminDashboard() {
             <span className="text-gold/60 font-normal text-sm ml-2">— {barber.name}</span>
           </h1>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-warm-gray text-xs hidden sm:block truncate max-w-[200px]">{session?.user?.email}</span>
+        <div className="flex items-center gap-3">
+          {notifPerm !== 'granted' && notifPerm !== 'denied' && (
+            <button
+              onClick={handleEnableNotifications}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gold/40 text-gold hover:bg-gold/10 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span className="hidden sm:inline">Activer les notifications</span>
+            </button>
+          )}
+          <span className="text-warm-gray text-xs hidden sm:block truncate max-w-[160px]">{session?.user?.email}</span>
           <button
             onClick={handleLogout}
             className="text-xs text-warm-gray hover:text-bordeaux transition-colors flex items-center gap-1"
