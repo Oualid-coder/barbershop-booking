@@ -1,6 +1,17 @@
 // Supabase Edge Function — notify-booking
 // Runtime : Deno — appel direct à l'API REST Resend via fetch natif
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -120,11 +131,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { client_name, client_phone, service_name, booking_date, booking_time, barber_id } = payload
 
   if (!client_name || !client_phone || !service_name || !booking_date || !booking_time || !barber_id) {
-    return respond({
-      error: 'Missing required fields',
-      required: ['client_name', 'client_phone', 'service_name', 'booking_date', 'booking_time', 'barber_id'],
-      received: Object.keys(payload),
-    }, 400)
+    return respond({ error: 'Missing required fields' }, 400)
+  }
+
+  if (!UUID_RE.test(String(barber_id))) {
+    return respond({ error: 'Invalid barber_id format' }, 400)
   }
 
   // ── Fetch barber email via REST API (bypasses RLS) ──────────────────────────
@@ -154,7 +165,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (!barberRes.ok || !barberRows[0]?.email) {
     console.error('[notify-booking] Barber not found:', barber_id, JSON.stringify(barberRows))
-    return respond({ error: 'Barber not found', barber_id }, 404)
+    return respond({ error: 'Barber not found' }, 404)
   }
 
   const BARBER_EMAIL: string = barberRows[0].email
@@ -164,11 +175,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const time          = String(booking_time).slice(0, 5)
   const subject       = `Nouvelle réservation — ${service_name} le ${formattedDate} à ${time}`
   const html          = buildHtml(
-    String(client_name),
-    String(client_phone),
-    String(service_name),
-    formattedDate,
-    time,
+    escapeHtml(String(client_name)),
+    escapeHtml(String(client_phone)),
+    escapeHtml(String(service_name)),
+    escapeHtml(formattedDate),
+    escapeHtml(time),
   )
 
   // ── Call Resend REST API ─────────────────────────────────────────────────────

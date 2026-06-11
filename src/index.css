@@ -1,6 +1,39 @@
 @import "tailwindcss";
 
+@theme {
+  /* ── Palette VIP Cut's ──────────────────────────────────────── */
+  --color-ivory:        #F7F2E8;
+  --color-ivory-dark:   #EDE8DC;
+  --color-ivory-border: #D4CBBA;
+  --color-vip-black:    #0D0D0D;
+  --color-gold:         #C9A84C;
+  --color-gold-light:   #E2C97E;
+  --color-bordeaux:     #6B1E2A;
+  --color-warm-gray:    #7A6E5E;
+
+  /* ── Typographie ──────────────────────────────────────────────── */
+  --font-playfair: 'Playfair Display', Georgia, serif;
+  --font-dm:       'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Base ────────────────────────────────────────────────────────── */
+html { font-family: var(--font-dm); }
+body { background-color: #F7F2E8; }
+
+/* ── Film grain overlay (subtil, pointer-events ignorés) ──────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.028;
+}
+
+/* ── Print (QR code) ─────────────────────────────────────────────── */
 @media print {
+  body::after { display: none; }
   body * { visibility: hidden; }
   #qr-print-area,
   #qr-print-area * { visibility: visible; }

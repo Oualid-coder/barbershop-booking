@@ -238,11 +238,132 @@ Avec RLS, même en appelant Supabase directement avec l'`anon key`, la base refu
 - ✅ Données toujours fraîches après chaque action
 - ⚠️ Un flash de rechargement peut être perceptible — acceptable à cette échelle (<100 résa/mois)
 
+## Audit sécurité pré-production
+
+Audit réalisé le 2026-06-09. 10 points vérifiés.
+
+---
+
+### ✅ Points conformes
+
+**2. Exposition des clés API**
+- `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` sont dans le bundle frontend — c'est intentionnel et sûr : la `anon key` est une clé publique dont les droits sont limités par RLS.
+- `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` : jamais dans le frontend, uniquement dans les secrets Supabase Edge Functions.
+
+**4. Variables d'environnement**
+- `.env`, `.env.local`, `.env.*.local` sont dans `.gitignore`. ✅
+- `.env.example` contient uniquement des valeurs placeholder.
+
+**5. Injections SQL**
+- Toutes les requêtes passent par `@supabase/supabase-js` (requêtes paramétrées via PostgREST). Zéro SQL brut dans le frontend.
+
+**7. Auth**
+- `signInWithPassword` → message d'erreur générique (ne révèle pas si l'email existe).
+- `ProtectedRoute` : spinner pendant le chargement, jamais de flash du contenu protégé.
+- `onAuthStateChange` : session invalidée en temps réel si le JWT expire.
+- Brute-force : géré par le rate-limiting natif de Supabase Auth.
+
+**8. CORS**
+- `Access-Control-Allow-Origin: *` dans l'Edge Function = standard Supabase. La protection réelle est le JWT vérifié par Supabase avant d'exécuter la fonction.
+
+**9. Données sensibles**
+- `client_name` / `client_phone` : RLS interdit tout SELECT à `anon` sur `bookings`. Seul un admin authentifié peut lire les réservations.
+
+**10. Dépendances**
+- `npm audit` : 0 vulnérabilité (info/low/moderate/high/critical). ✅
+
+---
+
+### 🔴 Failles corrigées
+
+**Faille 1 — RLS bookings : status arbitraire à l'insertion (CORRIGÉ)**
+
+- **Risque** : Un utilisateur anonyme pouvait appeler l'API Supabase directement et insérer un booking avec `status = 'confirmed'`, bypassant le workflow de confirmation admin.
+- **Fix** : Migration `006_security_fixes.sql` — remplace `WITH CHECK (true)` par `WITH CHECK (status = 'pending')` sur la policy `bookings_public_insert`.
+
+**Faille 2 — XSS dans le template email (CORRIGÉ)**
+
+- **Risque** : Les champs `client_name`, `client_phone`, `service_name` étaient interpolés directement dans le HTML de l'email sans échappement. Un input `<img src=x onerror=...>` se retrouvait dans le corps de l'email. Risque faible en pratique (les clients email strippent JS) mais exploitable pour injecter du HTML arbitraire.
+- **Fix** : Fonction `escapeHtml()` ajoutée dans l'Edge Function, appliquée à toutes les valeurs utilisateur avant interpolation HTML.
+
+**Faille 3 — barber_id non validé avant interpolation URL (CORRIGÉ)**
+
+- **Risque** : Le `barber_id` issu du payload était interpolé directement dans l'URL REST (`?id=eq.${barber_id}`) sans validation de format. Un `barber_id` contenant des caractères spéciaux (`%0a`, `&select=*`, etc.) pouvait manipuler la query string PostgREST.
+- **Fix** : Validation UUID stricte via regex `UUID_RE` avant tout usage du `barber_id`. Retour 400 si format invalide.
+
+**Bonus — leak d'information dans les erreurs (CORRIGÉ)**
+
+- Les réponses d'erreur 400 renvoyaient `received: Object.keys(payload)` (liste des champs du payload) et la réponse 404 renvoyait le `barber_id`. Ces informations aident un attaquant à sonder l'API.
+- **Fix** : Messages d'erreur génériques sans détail interne.
+
+---
+
+### ⚠️ Risques acceptés (documentés)
+
+**Spam email via Edge Function**
+- L'Edge Function accepte tout Bearer JWT valide, y compris l'`anon key` publique. Un attaquant connaissant l'URL de la fonction et l'anon key peut déclencher des envois d'emails.
+- **Mitigation** : Le payload doit contenir un `barber_id` UUID valide existant en base. Le volume d'un barbershop solo (< 50 résa/mois) rend ce vecteur peu attractif.
+- **Solution future** : Ajouter un secret partagé en header custom, ou vérifier que le booking existe en base avant d'envoyer l'email.
+
+**`resend` npm package installé mais inutilisé**
+- Le package `resend` est dans `dependencies` mais l'Edge Function utilise `fetch` natif. Dépendance superflue = surface d'attaque supply chain inutile.
+- **Solution future** : `npm uninstall resend` si aucun usage Node.js n'est prévu.
+
+**`admin = tout utilisateur authentifié`**
+- RLS : toute session Auth valide a les droits admin complets sur toutes les tables. Acceptable pour un barbershop solo.
+- **Solution future** : Roles PostgreSQL (`barbier`, `owner`) si plusieurs coiffeurs avec droits différenciés.
+
+## Système de design — VIP Cut's
+
+### Palette (Tailwind v4 @theme tokens)
+
+| Token | Valeur | Usage |
+|---|---|---|
+| `ivory` | `#F7F2E8` | Background principal |
+| `ivory-dark` | `#EDE8DC` | Background secondaire, hover |
+| `ivory-border` | `#D4CBBA` | Bordures, placeholders |
+| `vip-black` | `#0D0D0D` | Header, texte principal, boutons primaires |
+| `gold` | `#C9A84C` | Accent, prix, step active, horaires |
+| `gold-light` | `#E2C97E` | Variantes or clair |
+| `bordeaux` | `#6B1E2A` | Erreurs, hover bouton primaire, annulation |
+| `warm-gray` | `#7A6E5E` | Texte secondaire, labels |
+
+### Typographie
+
+- `font-playfair` : Playfair Display — headings, nom du salon, prix, noms clients, heures
+- `font-dm` : DM Sans — body, labels, boutons, texte courant
+
+Chargées via Google Fonts dans `index.html`.
+
+### BookingPage — tunnel client
+
+- **4 étapes** : Barbier (1) → Service (2) → Créneau (3) → Confirmation (4)
+- Fond ivory, cards blanches avec `border-ivory-border`
+- Bouton primaire : `bg-vip-black text-ivory hover:bg-bordeaux`
+- Barbier cards : avatar circulaire initial `font-playfair`, `border-gold` sélectionné
+- StepIndicator : actif = `bg-vip-black ring-gold`, fait = `bg-gold`, inactif = `border-ivory-border`
+- Grain texture : `body::after` SVG feTurbulence, `opacity: 0.028`
+
+### AdminDashboard / LoginPage — espace pro
+
+- Header : `bg-vip-black` avec "VIP Cut's" en `font-playfair` + nom du barbier en or
+- Tabs : `bg-ivory text-vip-black` actif, `text-warm-gray hover:bg-white/5` inactif
+- Cards bookings : `bg-white border-ivory-border`, heure en `text-gold font-playfair`
+- STATUS_BADGE : pending=`ivory-dark/warm-gray`, confirmed=`gold/10+gold`, cancelled=`bordeaux/10+bordeaux`
+- Toggle : `bg-gold` ON / `bg-ivory-border` OFF
+- Inputs horaires : `bg-white border-ivory-border focus:border-gold`
+- Calendrier : cellules `bg-ivory`, `bg-gold/10` aujourd'hui, `bg-vip-black` sélectionné, dots `bg-gold`
+- MoveModal : `bg-white border-ivory-border`, même palette que le tunnel client
+
+### Favicon
+
+SVG rasoir droit (`public/favicon.svg`) : manche noir+or, pivot or, lame noire, dos or.
+
 ## TODO
 - [x] Schéma SQL Supabase
 - [x] Bootstrap React + Vite
-- [ ] Page client réservation
-- [x] Dashboard admin
+- [x] Page client réservation (4 étapes + design VIP)
+- [x] Dashboard admin (design VIP)
 - [x] RLS policies
 - [ ] Déploiement Vercel
-- [ ] Génération QR code
+- [x] Génération QR code

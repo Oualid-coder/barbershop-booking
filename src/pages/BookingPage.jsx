@@ -13,35 +13,63 @@ import TimeSlotGrid from '../components/TimeSlotGrid'
 
 const STEPS = ['Barbier', 'Service', 'Créneau', 'Confirmation']
 
+// ─── Razor SVG décoration header ─────────────────────────────────────────────
+
+function RazorDecor() {
+  return (
+    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {/* Handle/écailles */}
+      <rect x="3" y="33" width="20" height="14" rx="4" fill="#C9A84C" opacity="0.12"/>
+      <rect x="4" y="34" width="18" height="12" rx="3.5" stroke="#C9A84C" strokeWidth="1.5" opacity="0.5"/>
+      {/* Rivets */}
+      <circle cx="9"  cy="40" r="1.5" fill="#C9A84C" opacity="0.45"/>
+      <circle cx="16" cy="40" r="1.5" fill="#C9A84C" opacity="0.45"/>
+      {/* Pivot */}
+      <circle cx="26" cy="40" r="3.5" fill="#C9A84C" opacity="0.35"/>
+      <circle cx="26" cy="40" r="1.8" fill="#C9A84C" opacity="0.7"/>
+      <circle cx="26" cy="40" r="0.7" fill="#0D0D0D"/>
+      {/* Lame (corps) */}
+      <path d="M26 35.5L73 22L75 28V52L26 44.5Z" fill="#0D0D0D" opacity="0.07"/>
+      {/* Dos de lame (or) */}
+      <path d="M26 35.5L73 22" stroke="#C9A84C" strokeWidth="2" strokeLinecap="round"/>
+      {/* Tranchant (bas) */}
+      <path d="M26 44.5L75 52L73 22" stroke="#0D0D0D" strokeOpacity="0.18" strokeWidth="1" strokeLinejoin="round"/>
+      {/* Pointe de lame */}
+      <path d="M73 22L75 28V52L73 50Z" fill="#0D0D0D" opacity="0.2"/>
+    </svg>
+  )
+}
+
 // ─── Success screen ───────────────────────────────────────────────────────────
 
-function SuccessScreen({ service, date, time, onReset }) {
+function SuccessScreen({ service, date, time, barberName, onReset }) {
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-6 text-center">
-      <div className="w-16 h-16 rounded-full bg-amber-400/10 border border-amber-400 flex items-center justify-center mb-6">
-        <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 text-center font-dm">
+      <div className="w-16 h-16 rounded-full border-2 border-gold flex items-center justify-center mb-6">
+        <svg className="w-7 h-7 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       </div>
 
-      <h1 className="text-2xl font-semibold text-white mb-2">Réservation confirmée</h1>
-      <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
-        Votre rendez-vous est enregistré.<br />À bientôt !
+      <h1 className="font-playfair text-2xl font-bold text-vip-black mb-2">Réservation confirmée</h1>
+      <p className="text-warm-gray text-sm mb-8 leading-relaxed max-w-xs">
+        Votre rendez-vous est enregistré.<br />À bientôt chez VIP Cut's !
       </p>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-xs px-6 py-5 space-y-3 text-left mb-8">
-        <p className="text-zinc-500 text-xs uppercase tracking-widest mb-4">Votre rendez-vous</p>
+      <div className="bg-white border border-ivory-border rounded-2xl w-full max-w-xs px-6 py-5 space-y-3 text-left mb-8">
+        <p className="text-warm-gray text-xs uppercase tracking-widest mb-4 font-medium">Votre rendez-vous</p>
+        {barberName && <Row label="Barbier" value={barberName} />}
         <Row label="Service" value={service?.name} />
         <Row label="Date" value={formatDate(date)} />
-        <div className="flex justify-between border-t border-zinc-800 pt-3">
-          <span className="text-zinc-400 text-sm">Heure</span>
-          <span className="text-amber-400 font-semibold">{time}</span>
+        <div className="flex justify-between border-t border-ivory-border pt-3">
+          <span className="text-warm-gray text-sm">Heure</span>
+          <span className="text-gold font-playfair font-bold text-lg">{time}</span>
         </div>
       </div>
 
       <button
         onClick={onReset}
-        className="text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
+        className="text-warm-gray text-sm hover:text-bordeaux transition-colors"
       >
         Faire une nouvelle réservation
       </button>
@@ -52,8 +80,8 @@ function SuccessScreen({ service, date, time, onReset }) {
 function Row({ label, value }) {
   return (
     <div className="flex justify-between">
-      <span className="text-zinc-400 text-sm">{label}</span>
-      <span className="text-white text-sm font-medium text-right max-w-[55%]">{value}</span>
+      <span className="text-warm-gray text-sm">{label}</span>
+      <span className="text-vip-black text-sm font-medium text-right max-w-[55%]">{value}</span>
     </div>
   )
 }
@@ -64,9 +92,9 @@ function BackButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 text-zinc-500 text-sm mb-6 hover:text-amber-400 transition-colors"
+      className="flex items-center gap-1.5 text-warm-gray text-sm mb-6 hover:text-bordeaux transition-colors group"
     >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
       </svg>
       Retour
@@ -94,7 +122,6 @@ export default function BookingPage() {
   const [submitError, setSubmitError] = useState(null)
   const [booked, setBooked] = useState(false)
 
-  // Load services + business hours + barbers once
   useEffect(() => {
     async function load() {
       const [{ data: svc }, { data: hours }, { data: brbs }] = await Promise.all([
@@ -110,7 +137,6 @@ export default function BookingPage() {
     load()
   }, [])
 
-  // Load blocked slots when date changes
   useEffect(() => {
     if (!selectedDate) return
     supabase
@@ -122,11 +148,9 @@ export default function BookingPage() {
       })
   }, [selectedDate])
 
-  // Days closed per business_hours
   const closedDays = businessHours.filter((h) => h.is_closed).map((h) => h.day_of_week)
   const availableDates = getNext30Days().filter((d) => !closedDays.includes(getDayOfWeek(d)))
 
-  // Generate available time slots for selected date + service
   const availableSlots = (() => {
     if (!selectedDate || !selectedService) return []
     const hours = businessHours.find((h) => h.day_of_week === getDayOfWeek(selectedDate))
@@ -186,13 +210,13 @@ export default function BookingPage() {
     setSubmitError(null)
 
     const { error } = await supabase.from('bookings').insert({
-      service_id: selectedService.id,
-      barber_id: selectedBarber?.id ?? null,
-      client_name: clientName.trim(),
+      service_id:   selectedService.id,
+      barber_id:    selectedBarber?.id ?? null,
+      client_name:  clientName.trim(),
       client_phone: clientPhone.trim(),
       booking_date: selectedDate,
       booking_time: selectedTime,
-      status: 'pending',
+      status:       'pending',
     })
 
     setSubmitting(false)
@@ -208,10 +232,8 @@ export default function BookingPage() {
       return
     }
 
-    // Confirmation visible immédiatement — la notification part en arrière-plan
     setBooked(true)
 
-    // Fire-and-forget : une erreur d'email ne doit jamais bloquer la confirmation client
     supabase.functions.invoke('notify-booking', {
       body: {
         client_name:  clientName.trim(),
@@ -221,7 +243,7 @@ export default function BookingPage() {
         booking_time: selectedTime,
         barber_id:    selectedBarber?.id ?? null,
       },
-    }).catch(() => {}) // Échec silencieux — la résa est déjà en base
+    }).catch(() => {})
   }
 
   function handleReset() {
@@ -245,83 +267,114 @@ export default function BookingPage() {
         service={selectedService}
         date={selectedDate}
         time={selectedTime}
+        barberName={selectedBarber?.name}
         onReset={handleReset}
       />
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      {/* Header */}
-      <header className="px-4 pt-10 pb-5 text-center border-b border-zinc-900">
-        <div className="w-6 h-px bg-amber-400 mx-auto mb-4" />
-        <h1 className="text-base font-semibold tracking-[0.25em] uppercase text-white">
-          Barbershop
-        </h1>
-        <p className="text-zinc-600 text-xs mt-1 tracking-widest uppercase">
-          Réservation en ligne
-        </p>
+    <div className="min-h-screen bg-ivory font-dm text-vip-black">
+
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <header className="relative px-6 pt-10 pb-6 border-b border-ivory-border overflow-hidden">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-5 h-px bg-gold" />
+              <p className="text-gold text-xs font-medium tracking-[0.35em] uppercase">Paris 18e</p>
+            </div>
+            <h1 className="font-playfair text-3xl font-bold tracking-[0.12em] text-vip-black leading-none">
+              VIP Cut's
+            </h1>
+            <p className="text-warm-gray text-xs mt-1.5 tracking-wide uppercase font-medium">
+              Coiffeur Barbier
+            </p>
+            <p className="text-warm-gray text-xs mt-1 flex items-center gap-1">
+              <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              86 rue Joseph de Maistre · 75018 Paris
+            </p>
+          </div>
+          <div className="opacity-25 pointer-events-none select-none">
+            <RazorDecor />
+          </div>
+        </div>
       </header>
+
+      {/* Gold separator */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gold to-transparent opacity-40" />
 
       <StepIndicator step={step} steps={STEPS} />
 
-      <main className="px-4 pb-28 max-w-lg mx-auto">
+      <main className="px-5 pb-28 max-w-lg mx-auto">
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <>
-            {/* ── Step 1 : Barbier ─────────────────────────────────────── */}
+            {/* ── Étape 1 : Barbier ──────────────────────────────────── */}
             {step === 1 && (
               <section>
                 <SectionHeader
-                  title="Choisissez votre barbier"
-                  sub="Sélectionnez un barbier pour commencer"
+                  title="Votre barbier"
+                  sub="Choisissez avec qui vous souhaitez être coiffé"
                 />
                 <div className="space-y-3">
-                  {barbers.map((barber) => (
-                    <button
-                      key={barber.id}
-                      onClick={() => handleSelectBarber(barber)}
-                      className={[
-                        'w-full text-left bg-zinc-900 border rounded-xl px-4 py-4 flex items-center gap-4 transition-all active:scale-[0.99]',
-                        selectedBarber?.id === barber.id
-                          ? 'border-amber-400'
-                          : 'border-zinc-800 hover:border-zinc-600',
-                      ].join(' ')}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
-                        <span className="text-amber-400 font-semibold text-sm">
-                          {barber.name.charAt(0).toUpperCase()}
+                  {barbers.map((barber) => {
+                    const isSelected = selectedBarber?.id === barber.id
+                    return (
+                      <button
+                        key={barber.id}
+                        onClick={() => handleSelectBarber(barber)}
+                        className={[
+                          'w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all active:scale-[0.99] text-left',
+                          isSelected
+                            ? 'border-gold bg-gold/5'
+                            : 'border-ivory-border bg-white hover:border-gold/50',
+                        ].join(' ')}
+                      >
+                        {/* Avatar */}
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-vip-black' : 'bg-ivory-dark'}`}>
+                          <span className={`font-playfair text-2xl font-bold transition-colors ${isSelected ? 'text-gold' : 'text-warm-gray'}`}>
+                            {barber.name.charAt(0)}
+                          </span>
+                        </div>
+                        <span className="font-playfair text-xl font-semibold text-vip-black flex-1">
+                          {barber.name}
                         </span>
-                      </div>
-                      <p className="text-white font-medium">{barber.name}</p>
-                    </button>
-                  ))}
+                        {isSelected && (
+                          <div className="w-6 h-6 rounded-full bg-gold flex items-center justify-center shrink-0">
+                            <svg className="w-3 h-3 text-vip-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </section>
             )}
 
-            {/* ── Step 2 : Service ─────────────────────────────────────── */}
+            {/* ── Étape 2 : Service ──────────────────────────────────── */}
             {step === 2 && (
               <section>
                 <BackButton onClick={() => setStep(1)} />
 
-                {/* Barber recap */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-6 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
-                    <span className="text-amber-400 font-semibold text-xs">
+                {/* Barbier sélectionné */}
+                <div className="bg-white border border-ivory-border rounded-xl px-4 py-3 mb-6 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-vip-black flex items-center justify-center shrink-0">
+                    <span className="font-playfair text-xs font-bold text-gold">
                       {selectedBarber?.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-white font-medium">{selectedBarber?.name}</p>
+                  <span className="font-playfair font-semibold text-vip-black">{selectedBarber?.name}</span>
                 </div>
 
-                <SectionHeader
-                  title="Choisissez votre service"
-                  sub="Sélectionnez une prestation pour continuer"
-                />
+                <SectionHeader title="Votre prestation" sub="Sélectionnez un service" />
                 <div className="space-y-3">
                   {services.map((service) => (
                     <ServiceCard
@@ -335,21 +388,21 @@ export default function BookingPage() {
               </section>
             )}
 
-            {/* ── Step 3 : Date + Créneau ──────────────────────────────── */}
+            {/* ── Étape 3 : Date + Créneau ───────────────────────────── */}
             {step === 3 && (
               <section>
                 <BackButton onClick={() => setStep(2)} />
 
-                {/* Service recap */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-6 flex justify-between items-center">
+                {/* Service sélectionné */}
+                <div className="bg-white border border-ivory-border rounded-xl px-4 py-3 mb-6 flex justify-between items-center">
                   <div>
-                    <p className="text-white font-medium">{selectedService?.name}</p>
-                    <p className="text-zinc-500 text-sm">{selectedService?.duration_minutes} min</p>
+                    <p className="font-playfair font-semibold text-vip-black">{selectedService?.name}</p>
+                    <p className="text-warm-gray text-sm">{selectedService?.duration_minutes} min</p>
                   </div>
-                  <span className="text-amber-400 font-bold">{selectedService?.price} €</span>
+                  <span className="text-gold font-playfair font-bold text-xl">{selectedService?.price} €</span>
                 </div>
 
-                <SectionHeader title="Choisissez une date" sub="Disponibilités sur 30 jours" />
+                <SectionHeader title="Date & Créneau" sub="Disponibilités sur 30 jours" />
                 <DateSelector
                   dates={availableDates}
                   selected={selectedDate}
@@ -358,10 +411,7 @@ export default function BookingPage() {
 
                 {selectedDate && (
                   <div className="mt-8">
-                    <SectionHeader
-                      title="Choisissez un créneau"
-                      sub={formatDate(selectedDate)}
-                    />
+                    <SectionHeader title="Choisissez un créneau" sub={formatDate(selectedDate)} />
                     <TimeSlotGrid
                       slots={availableSlots}
                       selected={selectedTime}
@@ -373,37 +423,36 @@ export default function BookingPage() {
                 {submitError && <ErrorBanner message={submitError} />}
 
                 <div className="mt-8">
-                  <button
+                  <PrimaryButton
                     disabled={!selectedDate || !selectedTime}
                     onClick={handleProceedToConfirmation}
-                    className="w-full bg-amber-400 text-zinc-950 font-bold py-4 rounded-xl disabled:opacity-25 disabled:cursor-not-allowed hover:bg-amber-300 active:scale-[0.99] transition-all"
                   >
                     Continuer
-                  </button>
+                  </PrimaryButton>
                 </div>
               </section>
             )}
 
-            {/* ── Step 4 : Formulaire + Confirmation ───────────────────── */}
+            {/* ── Étape 4 : Formulaire + Confirmation ────────────────── */}
             {step === 4 && (
               <section>
                 <BackButton onClick={() => setStep(3)} />
 
-                {/* Booking recap */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 mb-8">
-                  <p className="text-zinc-500 text-xs uppercase tracking-widest mb-4">Récapitulatif</p>
+                {/* Récapitulatif */}
+                <div className="bg-white border border-ivory-border rounded-2xl px-5 py-4 mb-8">
+                  <p className="text-warm-gray text-xs uppercase tracking-widest mb-4 font-medium">Récapitulatif</p>
                   <div className="space-y-2.5">
-                    <Row label="Barbier" value={selectedBarber?.name} />
-                    <Row label="Service" value={selectedService?.name} />
-                    <Row label="Date" value={formatDate(selectedDate)} />
-                    <Row label="Durée" value={`${selectedService?.duration_minutes} min`} />
-                    <div className="flex justify-between border-t border-zinc-800 pt-3 mt-1">
-                      <span className="text-zinc-400 text-sm">Heure</span>
-                      <span className="text-amber-400 font-bold">{selectedTime}</span>
+                    <Row label="Barbier"  value={selectedBarber?.name} />
+                    <Row label="Service"  value={selectedService?.name} />
+                    <Row label="Date"     value={formatDate(selectedDate)} />
+                    <Row label="Durée"    value={`${selectedService?.duration_minutes} min`} />
+                    <div className="flex justify-between border-t border-ivory-border pt-3 mt-1">
+                      <span className="text-warm-gray text-sm">Heure</span>
+                      <span className="text-gold font-playfair font-bold text-xl">{selectedTime}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-400 text-sm">Total</span>
-                      <span className="text-white font-semibold">{selectedService?.price} €</span>
+                      <span className="text-warm-gray text-sm">Total</span>
+                      <span className="text-vip-black font-semibold">{selectedService?.price} €</span>
                     </div>
                   </div>
                 </div>
@@ -432,22 +481,16 @@ export default function BookingPage() {
                 {submitError && <ErrorBanner message={submitError} />}
 
                 <div className="mt-8">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                    className="w-full bg-amber-400 text-zinc-950 font-bold py-4 rounded-xl disabled:opacity-50 hover:bg-amber-300 active:scale-[0.99] transition-all"
-                  >
+                  <PrimaryButton onClick={handleSubmit} disabled={submitting}>
                     {submitting ? (
                       <span className="flex items-center justify-center gap-2">
-                        <span className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                        <span className="w-4 h-4 border-2 border-ivory border-t-transparent rounded-full animate-spin" />
                         Confirmation…
                       </span>
-                    ) : (
-                      'Confirmer la réservation'
-                    )}
-                  </button>
-                  <p className="text-zinc-700 text-xs text-center mt-4">
-                    Vos coordonnées sont transmises uniquement au barbershop.
+                    ) : 'Confirmer la réservation'}
+                  </PrimaryButton>
+                  <p className="text-warm-gray text-xs text-center mt-4">
+                    Vos coordonnées sont transmises uniquement au salon.
                   </p>
                 </div>
               </section>
@@ -455,25 +498,47 @@ export default function BookingPage() {
           </>
         )}
       </main>
+
+      <footer className="border-t border-ivory-border px-5 py-5 max-w-lg mx-auto w-full flex items-center justify-between">
+        <span className="text-ivory-border text-xs">© 2026 VIP Cut's</span>
+        <a
+          href="/admin/login"
+          className="text-warm-gray text-xs hover:text-vip-black transition-colors"
+        >
+          Espace professionnel
+        </a>
+      </footer>
     </div>
   )
 }
 
-// ─── Small shared UI pieces ───────────────────────────────────────────────────
+// ─── Petits composants partagés ───────────────────────────────────────────────
 
 function SectionHeader({ title, sub }) {
   return (
-    <div className="mb-4">
-      <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
-      {sub && <p className="text-zinc-500 text-sm mt-0.5 capitalize">{sub}</p>}
+    <div className="mb-5">
+      <h2 className="font-playfair text-xl font-semibold text-vip-black">{title}</h2>
+      {sub && <p className="text-warm-gray text-sm mt-0.5 capitalize">{sub}</p>}
     </div>
+  )
+}
+
+function PrimaryButton({ children, onClick, disabled = false }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full bg-vip-black text-ivory font-dm font-bold py-4 rounded-xl disabled:opacity-25 disabled:cursor-not-allowed hover:bg-bordeaux active:scale-[0.99] transition-all"
+    >
+      {children}
+    </button>
   )
 }
 
 function Field({ label, type, value, onChange, placeholder, error }) {
   return (
     <div>
-      <label className="block text-zinc-400 text-sm mb-2">{label}</label>
+      <label className="block text-warm-gray text-sm mb-2 font-medium">{label}</label>
       <input
         type={type}
         value={value}
@@ -481,19 +546,21 @@ function Field({ label, type, value, onChange, placeholder, error }) {
         placeholder={placeholder}
         autoComplete="on"
         className={[
-          'w-full bg-zinc-900 border rounded-xl px-4 py-4 text-white placeholder-zinc-700',
-          'focus:outline-none transition-colors text-base',
-          error ? 'border-red-500 focus:border-red-400' : 'border-zinc-800 focus:border-amber-400',
+          'w-full bg-white border-2 rounded-xl px-4 py-4 text-vip-black placeholder-ivory-border',
+          'focus:outline-none transition-colors text-base font-dm',
+          error
+            ? 'border-bordeaux focus:border-bordeaux'
+            : 'border-ivory-border focus:border-gold',
         ].join(' ')}
       />
-      {error && <p className="text-red-400 text-xs mt-1.5">{error}</p>}
+      {error && <p className="text-bordeaux text-xs mt-1.5">{error}</p>}
     </div>
   )
 }
 
 function ErrorBanner({ message }) {
   return (
-    <div className="mt-4 bg-red-950/40 border border-red-900 rounded-xl px-4 py-3 text-red-300 text-sm">
+    <div className="mt-4 bg-bordeaux/5 border border-bordeaux/20 rounded-xl px-4 py-3 text-bordeaux text-sm">
       {message}
     </div>
   )

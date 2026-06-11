@@ -12,9 +12,9 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DAY_NAMES    = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-const DAY_HEADERS  = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-const MONTH_NAMES  = [
+const DAY_NAMES   = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+const DAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const MONTH_NAMES = [
   'Janvier','Février','Mars','Avril','Mai','Juin',
   'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
 ]
@@ -27,11 +27,10 @@ const TABS = [
   { id: 'qr',       label: 'QR Code'     },
 ]
 
-// pending=gris, confirmed=vert, cancelled=rouge (per spec)
 const STATUS_BADGE = {
-  pending:   'bg-zinc-800 text-zinc-400 border border-zinc-700',
-  confirmed: 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/25',
-  cancelled: 'bg-red-400/10 text-red-400 border border-red-400/20',
+  pending:   'bg-ivory-dark text-warm-gray border border-ivory-border',
+  confirmed: 'bg-gold/10 text-gold border border-gold/30',
+  cancelled: 'bg-bordeaux/10 text-bordeaux border border-bordeaux/25',
 }
 const STATUS_LABEL = {
   pending:   'En attente',
@@ -50,28 +49,23 @@ function dateToStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Returns 42 cells (6 rows × 7 cols) for a given month, including prev/next month padding
 function getCalendarDays(year, month) {
   const firstDay = new Date(year, month, 1)
   const lastDay  = new Date(year, month + 1, 0)
-  // Mon=0 … Sun=6
   const startDow = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1
 
   const days = []
 
-  // Prev month padding (in chronological order)
   for (let i = startDow - 1; i >= 0; i--) {
     const d = new Date(year, month, -i)
     days.push({ dateStr: dateToStr(d), num: d.getDate(), currentMonth: false })
   }
 
-  // Current month
   for (let n = 1; n <= lastDay.getDate(); n++) {
     const d = new Date(year, month, n)
     days.push({ dateStr: dateToStr(d), num: n, currentMonth: true })
   }
 
-  // Next month padding to reach 42 cells
   for (let n = 1; days.length < 42; n++) {
     const d = new Date(year, month + 1, n)
     days.push({ dateStr: dateToStr(d), num: d.getDate(), currentMonth: false })
@@ -94,7 +88,7 @@ function Toggle({ checked, onChange, label }) {
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={`relative shrink-0 w-11 h-6 rounded-full transition-colors focus:outline-none ${
-        checked ? 'bg-amber-400' : 'bg-zinc-700'
+        checked ? 'bg-gold' : 'bg-ivory-border'
       }`}
     >
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -107,7 +101,7 @@ function Toggle({ checked, onChange, label }) {
 function Spinner({ small = false }) {
   return (
     <div className={`flex items-center justify-center ${small ? 'h-12' : 'h-40'}`}>
-      <div className={`border-2 border-amber-400 border-t-transparent rounded-full animate-spin ${small ? 'w-4 h-4' : 'w-6 h-6'}`} />
+      <div className={`border-2 border-gold border-t-transparent rounded-full animate-spin ${small ? 'w-4 h-4' : 'w-6 h-6'}`} />
     </div>
   )
 }
@@ -115,38 +109,36 @@ function Spinner({ small = false }) {
 function Empty({ message, sub }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center">
-      <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
-        <svg className="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="w-10 h-10 rounded-full bg-ivory-dark border border-ivory-border flex items-center justify-center mb-3">
+        <svg className="w-4 h-4 text-ivory-border" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       </div>
-      <p className="text-zinc-500 text-sm">{message}</p>
-      {sub && <p className="text-zinc-700 text-xs mt-1">{sub}</p>}
+      <p className="text-warm-gray text-sm">{message}</p>
+      {sub && <p className="text-ivory-border text-xs mt-1">{sub}</p>}
     </div>
   )
 }
 
-// ─── Booking card (used in all views) ────────────────────────────────────────
-// onMove: optional — shows "Déplacer" button when provided
+// ─── Booking card ─────────────────────────────────────────────────────────────
 
 function BookingCard({ booking, onStatusChange, onMove }) {
   const cancelled = booking.status === 'cancelled'
 
   return (
-    <div className={`bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden transition-opacity ${cancelled ? 'opacity-40' : ''}`}>
-      {/* Header row: time · name · status */}
+    <div className={`bg-white border border-ivory-border rounded-xl overflow-hidden transition-opacity ${cancelled ? 'opacity-40' : ''}`}>
       <div className="flex items-start gap-3 px-4 pt-3 pb-2">
-        <span className="text-amber-400 font-mono font-semibold text-sm w-11 shrink-0 mt-0.5">
+        <span className="text-gold font-playfair font-bold text-base w-12 shrink-0 mt-0.5">
           {booking.booking_time.slice(0, 5)}
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-white font-medium text-sm leading-snug">{booking.client_name}</p>
+              <p className="text-vip-black font-semibold text-sm leading-snug font-playfair">{booking.client_name}</p>
               <a
                 href={`tel:${booking.client_phone}`}
-                className="text-zinc-400 text-xs hover:text-amber-400 transition-colors"
+                className="text-warm-gray text-xs hover:text-gold transition-colors"
               >
                 {booking.client_phone}
               </a>
@@ -155,7 +147,7 @@ function BookingCard({ booking, onStatusChange, onMove }) {
               {STATUS_LABEL[booking.status]}
             </span>
           </div>
-          <p className="text-zinc-600 text-xs mt-1.5">
+          <p className="text-warm-gray text-xs mt-1.5">
             {booking.services?.name}
             {booking.services?.duration_minutes && ` · ${booking.services.duration_minutes} min`}
             {booking.services?.price != null && ` · ${booking.services.price} €`}
@@ -163,27 +155,26 @@ function BookingCard({ booking, onStatusChange, onMove }) {
         </div>
       </div>
 
-      {/* Actions */}
       {!cancelled && (
-        <div className="flex items-center gap-1.5 px-4 py-2 border-t border-zinc-800/60 flex-wrap">
+        <div className="flex items-center gap-1.5 px-4 py-2 border-t border-ivory-border/60 flex-wrap">
           {booking.status === 'pending' && (
             <button
               onClick={() => onStatusChange(booking.id, 'confirmed')}
-              className="text-xs px-2.5 py-1 rounded-lg bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 hover:bg-emerald-400/20 transition-colors"
+              className="text-xs px-2.5 py-1 rounded-lg bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 transition-colors"
             >
               Confirmer
             </button>
           )}
           <button
             onClick={() => onStatusChange(booking.id, 'cancelled')}
-            className="text-xs px-2.5 py-1 rounded-lg bg-red-400/10 text-red-400 border border-red-400/20 hover:bg-red-400/20 transition-colors"
+            className="text-xs px-2.5 py-1 rounded-lg bg-bordeaux/10 text-bordeaux border border-bordeaux/25 hover:bg-bordeaux/20 transition-colors"
           >
             Annuler
           </button>
           {onMove && (
             <button
               onClick={() => onMove(booking)}
-              className="ml-auto text-xs px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 transition-colors"
+              className="ml-auto text-xs px-2.5 py-1 rounded-lg bg-ivory-dark text-warm-gray border border-ivory-border hover:bg-ivory-dark/80 hover:text-vip-black transition-colors"
             >
               Déplacer →
             </button>
@@ -213,7 +204,7 @@ function MoveModal({ booking, onClose, onMoved }) {
     })
   }, [])
 
-  const closedDays    = businessHours.filter(h => h.is_closed).map(h => h.day_of_week)
+  const closedDays     = businessHours.filter(h => h.is_closed).map(h => h.day_of_week)
   const availableDates = getNext30Days().filter(d => !closedDays.includes(getDayOfWeek(d)))
 
   const loadSlots = useCallback(async (date) => {
@@ -236,7 +227,7 @@ function MoveModal({ booking, onClose, onMoved }) {
         .select('booking_time')
         .eq('booking_date', date)
         .neq('status', 'cancelled')
-        .neq('id', booking.id), // exclude the booking being moved
+        .neq('id', booking.id),
     ])
 
     const taken = new Set([
@@ -280,21 +271,21 @@ function MoveModal({ booking, onClose, onMoved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-vip-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-t-2xl sm:rounded-2xl max-h-[88vh] overflow-y-auto shadow-2xl">
+      <div className="relative w-full max-w-md bg-white border border-ivory-border rounded-t-2xl sm:rounded-2xl max-h-[88vh] overflow-y-auto shadow-2xl">
         {/* Modal header */}
-        <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-5 py-4 flex items-start justify-between">
+        <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-ivory-border px-5 py-4 flex items-start justify-between">
           <div>
-            <h3 className="text-white font-semibold">Déplacer le rendez-vous</h3>
-            <p className="text-zinc-500 text-xs mt-0.5">
+            <h3 className="text-vip-black font-playfair font-semibold">Déplacer le rendez-vous</h3>
+            <p className="text-warm-gray text-xs mt-0.5">
               {booking.client_name} · {booking.services?.name}
             </p>
-            <p className="text-zinc-600 text-xs">
+            <p className="text-ivory-border text-xs">
               Actuellement : {localDateLabel(booking.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })} à {booking.booking_time.slice(0, 5)}
             </p>
           </div>
-          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors mt-0.5 shrink-0 ml-4">
+          <button onClick={onClose} className="text-ivory-border hover:text-vip-black transition-colors mt-0.5 shrink-0 ml-4">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -306,7 +297,7 @@ function MoveModal({ booking, onClose, onMoved }) {
             <>
               {/* Date selector */}
               <div>
-                <p className="text-zinc-300 text-sm font-medium mb-3">Nouvelle date</p>
+                <p className="text-vip-black text-sm font-medium mb-3">Nouvelle date</p>
                 <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x">
                   {availableDates.map(date => {
                     const { day, num, month } = formatDateShort(date)
@@ -316,15 +307,15 @@ function MoveModal({ booking, onClose, onMoved }) {
                         key={date}
                         onClick={() => handleDateSelect(date)}
                         className={[
-                          'flex-shrink-0 snap-start flex flex-col items-center w-12 py-2.5 rounded-xl border transition-all',
+                          'flex-shrink-0 snap-start flex flex-col items-center w-12 py-2.5 rounded-xl border-2 transition-all',
                           isSel
-                            ? 'bg-amber-400 border-amber-400'
-                            : 'bg-zinc-800 border-zinc-700 hover:border-zinc-500',
+                            ? 'bg-vip-black border-vip-black'
+                            : 'bg-white border-ivory-border hover:border-gold/60',
                         ].join(' ')}
                       >
-                        <span className={`text-xs capitalize ${isSel ? 'text-zinc-800' : 'text-zinc-500'}`}>{day}</span>
-                        <span className={`text-base font-bold leading-tight ${isSel ? 'text-zinc-950' : 'text-white'}`}>{num}</span>
-                        <span className={`text-xs capitalize ${isSel ? 'text-zinc-800' : 'text-zinc-500'}`}>{month}</span>
+                        <span className={`text-xs capitalize ${isSel ? 'text-gold' : 'text-warm-gray'}`}>{day}</span>
+                        <span className={`text-base font-playfair font-bold leading-tight ${isSel ? 'text-ivory' : 'text-vip-black'}`}>{num}</span>
+                        <span className={`text-xs capitalize ${isSel ? 'text-gold/70' : 'text-warm-gray'}`}>{month}</span>
                       </button>
                     )
                   })}
@@ -334,9 +325,9 @@ function MoveModal({ booking, onClose, onMoved }) {
               {/* Slot selector */}
               {targetDate && (
                 <div>
-                  <p className="text-zinc-300 text-sm font-medium mb-3">Nouveau créneau</p>
+                  <p className="text-vip-black text-sm font-medium mb-3">Nouveau créneau</p>
                   {loadingSlots ? <Spinner small /> : slots.length === 0 ? (
-                    <p className="text-zinc-600 text-sm text-center py-4">Aucun créneau disponible</p>
+                    <p className="text-warm-gray text-sm text-center py-4">Aucun créneau disponible</p>
                   ) : (
                     <div className="grid grid-cols-4 gap-2">
                       {slots.map(slot => (
@@ -344,10 +335,10 @@ function MoveModal({ booking, onClose, onMoved }) {
                           key={slot}
                           onClick={() => setTargetTime(slot)}
                           className={[
-                            'py-2.5 rounded-lg border text-sm font-semibold transition-all',
+                            'py-2.5 rounded-xl border-2 text-sm font-semibold transition-all',
                             targetTime === slot
-                              ? 'bg-amber-400 border-amber-400 text-zinc-950'
-                              : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500',
+                              ? 'bg-vip-black border-vip-black text-ivory'
+                              : 'bg-white border-ivory-border text-vip-black hover:border-gold/60',
                           ].join(' ')}
                         >
                           {slot}
@@ -359,7 +350,7 @@ function MoveModal({ booking, onClose, onMoved }) {
               )}
 
               {error && (
-                <div className="bg-red-950/40 border border-red-900 rounded-xl px-4 py-3 text-red-300 text-sm">
+                <div className="bg-bordeaux/10 border border-bordeaux/25 rounded-xl px-4 py-3 text-bordeaux text-sm">
                   {error}
                 </div>
               )}
@@ -367,18 +358,18 @@ function MoveModal({ booking, onClose, onMoved }) {
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
-                  className="flex-1 py-3.5 rounded-xl border border-zinc-700 text-zinc-300 text-sm font-medium hover:bg-zinc-800 transition-colors"
+                  className="flex-1 py-3.5 rounded-xl border-2 border-ivory-border text-warm-gray text-sm font-medium hover:bg-ivory-dark transition-colors"
                 >
                   Annuler
                 </button>
                 <button
                   onClick={handleConfirm}
                   disabled={!targetDate || !targetTime || saving}
-                  className="flex-1 py-3.5 rounded-xl bg-amber-400 text-zinc-950 text-sm font-bold disabled:opacity-30 hover:bg-amber-300 transition-colors"
+                  className="flex-1 py-3.5 rounded-xl bg-vip-black text-ivory text-sm font-bold disabled:opacity-30 hover:bg-bordeaux transition-colors"
                 >
                   {saving ? (
                     <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                      <span className="w-4 h-4 border-2 border-ivory border-t-transparent rounded-full animate-spin" />
                       Déplacement…
                     </span>
                   ) : 'Confirmer'}
@@ -392,22 +383,22 @@ function MoveModal({ booking, onClose, onMoved }) {
   )
 }
 
-// ─── Day panel (inline below calendar on mobile, side panel on lg) ────────────
+// ─── Day panel ────────────────────────────────────────────────────────────────
 
 function DayPanel({ date, bookings, onClose, onStatusChange, onMove }) {
   const label  = localDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })
   const active = bookings.filter(b => b.status !== 'cancelled').length
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+    <div className="bg-white border border-ivory-border rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-ivory-border">
         <div>
-          <p className="text-white font-semibold capitalize text-sm">{label}</p>
-          <p className="text-zinc-500 text-xs mt-0.5">
+          <p className="text-vip-black font-playfair font-semibold capitalize text-sm">{label}</p>
+          <p className="text-warm-gray text-xs mt-0.5">
             {active} réservation{active !== 1 ? 's' : ''} active{active !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors">
+        <button onClick={onClose} className="text-ivory-border hover:text-vip-black transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -436,11 +427,11 @@ function DayPanel({ date, bookings, onClose, onStatusChange, onMove }) {
 
 function CalendarView({ barberId }) {
   const now   = new Date()
-  const [year, setYear]               = useState(now.getFullYear())
-  const [month, setMonth]             = useState(now.getMonth())
+  const [year, setYear]                    = useState(now.getFullYear())
+  const [month, setMonth]                  = useState(now.getMonth())
   const [bookingsByDate, setBookingsByDate] = useState({})
   const [selectedDate, setSelectedDate]    = useState(null)
-  const [loading, setLoading]         = useState(true)
+  const [loading, setLoading]              = useState(true)
   const [movingBooking, setMovingBooking]  = useState(null)
   const today = getToday()
 
@@ -501,7 +492,6 @@ function CalendarView({ barberId }) {
         const filtered = prev[date].filter(b => b.id !== updatedBooking.id)
         if (filtered.length) updated[date] = filtered
       }
-      // Insert into new date (only if same month is displayed)
       const newDate = updatedBooking.booking_date
       const [ny, nm] = newDate.split('-').map(Number)
       if (ny === year && nm - 1 === month) {
@@ -522,19 +512,19 @@ function CalendarView({ barberId }) {
       <div className="flex items-center justify-between mb-5">
         <button
           onClick={prevMonth}
-          className="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-ivory-border text-warm-gray hover:text-vip-black hover:border-gold/60 transition-colors"
           aria-label="Mois précédent"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h2 className="text-base font-semibold text-white">
+        <h2 className="text-base font-playfair font-semibold text-vip-black capitalize">
           {MONTH_NAMES[month]} {year}
         </h2>
         <button
           onClick={nextMonth}
-          className="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-ivory-border text-warm-gray hover:text-vip-black hover:border-gold/60 transition-colors"
           aria-label="Mois suivant"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,19 +536,19 @@ function CalendarView({ barberId }) {
       {/* Day-of-week headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAY_HEADERS.map(h => (
-          <div key={h} className="text-center text-xs text-zinc-600 font-medium py-1">{h}</div>
+          <div key={h} className="text-center text-xs text-warm-gray font-medium py-1">{h}</div>
         ))}
       </div>
 
       {/* Calendar grid */}
       {loading ? <Spinner /> : (
         <>
-          <div className="grid grid-cols-7 gap-px bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800">
+          <div className="grid grid-cols-7 gap-px bg-ivory-border rounded-xl overflow-hidden border border-ivory-border">
             {calendarDays.map(({ dateStr, num, currentMonth }) => {
-              const dayBookings  = bookingsByDate[dateStr] || []
-              const activeCount  = dayBookings.filter(b => b.status !== 'cancelled').length
-              const isToday      = dateStr === today
-              const isSelected   = dateStr === selectedDate && currentMonth
+              const dayBookings = bookingsByDate[dateStr] || []
+              const activeCount = dayBookings.filter(b => b.status !== 'cancelled').length
+              const isToday     = dateStr === today
+              const isSelected  = dateStr === selectedDate && currentMonth
 
               return (
                 <button
@@ -566,22 +556,22 @@ function CalendarView({ barberId }) {
                   disabled={!currentMonth}
                   onClick={() => currentMonth && setSelectedDate(prev => prev === dateStr ? null : dateStr)}
                   className={[
-                    'relative flex flex-col items-center justify-center py-2 min-h-[48px] transition-colors bg-zinc-950',
-                    !currentMonth   ? 'opacity-15 cursor-default' : 'cursor-pointer hover:bg-zinc-800/60',
-                    isSelected      ? 'bg-amber-400 hover:bg-amber-400' : '',
-                    isToday && !isSelected ? 'bg-amber-400/10' : '',
+                    'relative flex flex-col items-center justify-center py-2 min-h-[48px] transition-colors bg-ivory',
+                    !currentMonth  ? 'opacity-20 cursor-default' : 'cursor-pointer hover:bg-ivory-dark',
+                    isSelected     ? 'bg-vip-black hover:bg-vip-black' : '',
+                    isToday && !isSelected ? 'bg-gold/10' : '',
                   ].filter(Boolean).join(' ')}
                 >
                   <span className={`text-sm font-medium leading-none ${
-                    isSelected ? 'text-zinc-950' : isToday ? 'text-amber-400' : 'text-zinc-300'
+                    isSelected ? 'text-ivory' : isToday ? 'text-gold' : 'text-vip-black'
                   }`}>
                     {num}
                   </span>
                   {activeCount > 0 && currentMonth && (
                     <div className="flex items-center gap-0.5 mt-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-zinc-950' : 'bg-amber-400'}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-gold' : 'bg-gold'}`} />
                       {activeCount > 1 && (
-                        <span className={`text-[10px] leading-none font-semibold ${isSelected ? 'text-zinc-950' : 'text-amber-400'}`}>
+                        <span className={`text-[10px] leading-none font-semibold ${isSelected ? 'text-gold' : 'text-gold'}`}>
                           {activeCount}
                         </span>
                       )}
@@ -592,7 +582,6 @@ function CalendarView({ barberId }) {
             })}
           </div>
 
-          {/* Day panel */}
           {selectedDate && (
             <div className="mt-4">
               <DayPanel
@@ -607,7 +596,6 @@ function CalendarView({ barberId }) {
         </>
       )}
 
-      {/* Move modal (portal-style fixed overlay) */}
       {movingBooking && (
         <MoveModal
           booking={movingBooking}
@@ -622,8 +610,8 @@ function CalendarView({ barberId }) {
 // ─── Today view ───────────────────────────────────────────────────────────────
 
 function TodayView({ barberId }) {
-  const [bookings, setBookings] = useState([])
-  const [loading, setLoading]   = useState(true)
+  const [bookings, setBookings]           = useState([])
+  const [loading, setLoading]             = useState(true)
   const [movingBooking, setMovingBooking] = useState(null)
 
   const load = useCallback(async () => {
@@ -647,7 +635,6 @@ function TodayView({ barberId }) {
   }
 
   function handleMoved(updatedBooking) {
-    // Moved to another day → remove from today's list
     setBookings(prev => prev.filter(b => b.id !== updatedBooking.id))
     setMovingBooking(null)
   }
@@ -659,12 +646,12 @@ function TodayView({ barberId }) {
     <div>
       <div className="flex items-baseline justify-between mb-5">
         <div>
-          <h2 className="text-base font-semibold text-white capitalize">{today}</h2>
-          <p className="text-zinc-500 text-xs mt-0.5">
+          <h2 className="text-base font-playfair font-semibold text-vip-black capitalize">{today}</h2>
+          <p className="text-warm-gray text-xs mt-0.5">
             {active} réservation{active !== 1 ? 's' : ''} active{active !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={load} className="text-zinc-600 hover:text-zinc-300 transition-colors" title="Actualiser">
+        <button onClick={load} className="text-ivory-border hover:text-gold transition-colors" title="Actualiser">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -719,21 +706,21 @@ function ServicesView() {
 
   return (
     <div>
-      <p className="text-zinc-500 text-sm mb-5">Désactivez un service pour le masquer aux clients.</p>
+      <p className="text-warm-gray text-sm mb-5">Désactivez un service pour le masquer aux clients.</p>
       {loading ? <Spinner /> : (
         <div className="space-y-3">
           {services.map(s => (
             <div
               key={s.id}
-              className={`bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex items-center gap-4 transition-opacity ${!s.active ? 'opacity-40' : ''}`}
+              className={`bg-white border border-ivory-border rounded-xl px-4 py-3 flex items-center gap-4 transition-opacity ${!s.active ? 'opacity-40' : ''}`}
             >
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium text-sm">{s.name}</p>
-                <p className="text-zinc-500 text-xs mt-0.5">{s.duration_minutes} min · {s.price} €</p>
-                {s.description && <p className="text-zinc-600 text-xs mt-1 truncate">{s.description}</p>}
+                <p className="text-vip-black font-playfair font-semibold text-sm">{s.name}</p>
+                <p className="text-warm-gray text-xs mt-0.5">{s.duration_minutes} min · {s.price} €</p>
+                {s.description && <p className="text-ivory-border text-xs mt-1 truncate">{s.description}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-zinc-600 text-xs">{s.active ? 'Actif' : 'Inactif'}</span>
+                <span className="text-warm-gray text-xs">{s.active ? 'Actif' : 'Inactif'}</span>
                 <Toggle checked={s.active} onChange={v => toggleActive(s.id, v)} label={`Activer ${s.name}`} />
               </div>
             </div>
@@ -747,7 +734,7 @@ function ServicesView() {
 // ─── Hours view ───────────────────────────────────────────────────────────────
 
 function HoursView() {
-  const [hours, setHours] = useState([])
+  const [hours, setHours]     = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(null)
 
@@ -767,32 +754,32 @@ function HoursView() {
 
   return (
     <div>
-      <p className="text-zinc-500 text-sm mb-5">Modifications sauvegardées automatiquement.</p>
+      <p className="text-warm-gray text-sm mb-5">Modifications sauvegardées automatiquement.</p>
       {loading ? <Spinner /> : (
         <div className="space-y-2">
           {hours.map(h => (
             <div
               key={h.id}
-              className={`bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex items-center gap-3 transition-opacity ${h.is_closed ? 'opacity-50' : ''}`}
+              className={`bg-white border border-ivory-border rounded-xl px-4 py-3 flex items-center gap-3 transition-opacity ${h.is_closed ? 'opacity-50' : ''}`}
             >
-              <span className="text-zinc-300 text-sm font-medium w-24 shrink-0">{DAY_NAMES[h.day_of_week]}</span>
+              <span className="text-vip-black text-sm font-medium w-24 shrink-0">{DAY_NAMES[h.day_of_week]}</span>
 
               {h.is_closed ? (
-                <span className="text-zinc-600 text-sm flex-1">Fermé</span>
+                <span className="text-warm-gray text-sm flex-1">Fermé</span>
               ) : (
                 <div className="flex items-center gap-2 flex-1 flex-wrap">
                   <input
                     type="time" value={h.open_time.slice(0, 5)}
                     onChange={e => updateField(h.id, 'open_time', e.target.value)}
-                    className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:border-amber-400 transition-colors"
+                    className="bg-white border border-ivory-border rounded-lg px-2 py-1.5 text-vip-black text-sm focus:outline-none focus:border-gold transition-colors"
                   />
-                  <span className="text-zinc-600 text-xs">→</span>
+                  <span className="text-ivory-border text-xs">→</span>
                   <input
                     type="time" value={h.close_time.slice(0, 5)}
                     onChange={e => updateField(h.id, 'close_time', e.target.value)}
-                    className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:border-amber-400 transition-colors"
+                    className="bg-white border border-ivory-border rounded-lg px-2 py-1.5 text-vip-black text-sm focus:outline-none focus:border-gold transition-colors"
                   />
-                  {saving === h.id && <div className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
+                  {saving === h.id && <div className="w-3 h-3 border border-gold border-t-transparent rounded-full animate-spin" />}
                 </div>
               )}
 
@@ -812,18 +799,18 @@ function QRView() {
 
   return (
     <div className="flex flex-col items-center">
-      <p className="text-zinc-500 text-sm mb-8 text-center leading-relaxed max-w-xs">
+      <p className="text-warm-gray text-sm mb-8 text-center leading-relaxed max-w-xs">
         Placez ce QR code dans votre salon pour que les clients puissent réserver depuis leur téléphone.
       </p>
 
-      <div id="qr-print-area" className="bg-white rounded-2xl p-6 flex flex-col items-center gap-4 mb-6 shadow-lg">
-        <QRCodeSVG value={appUrl} size={200} level="H" bgColor="#ffffff" fgColor="#09090b" />
-        <p className="text-zinc-800 text-xs font-mono text-center break-all max-w-[200px]">{appUrl}</p>
+      <div id="qr-print-area" className="bg-white rounded-2xl p-6 flex flex-col items-center gap-4 mb-6 shadow-sm border border-ivory-border">
+        <QRCodeSVG value={appUrl} size={200} level="H" bgColor="#ffffff" fgColor="#0D0D0D" />
+        <p className="text-warm-gray text-xs font-mono text-center break-all max-w-[200px]">{appUrl}</p>
       </div>
 
       <button
         onClick={() => window.print()}
-        className="flex items-center gap-2 bg-amber-400 text-zinc-950 font-bold px-6 py-3 rounded-xl hover:bg-amber-300 active:scale-[0.99] transition-all"
+        className="flex items-center gap-2 bg-vip-black text-ivory font-bold px-6 py-3 rounded-xl hover:bg-bordeaux active:scale-[0.99] transition-all"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -831,7 +818,7 @@ function QRView() {
         </svg>
         Imprimer le QR Code
       </button>
-      <p className="text-zinc-700 text-xs text-center mt-4">L'impression n'affichera que le QR code</p>
+      <p className="text-ivory-border text-xs text-center mt-4">L'impression n'affichera que le QR code</p>
     </div>
   )
 }
@@ -840,8 +827,7 @@ function QRView() {
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('today')
-  // undefined = chargement, null = aucun barbier trouvé, objet = trouvé
-  const [barber, setBarber] = useState(undefined)
+  const [barber, setBarber]       = useState(undefined)
   const { session } = useAuth()
   const navigate = useNavigate()
 
@@ -863,28 +849,28 @@ export default function AdminDashboard() {
 
   if (barber === undefined) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-ivory flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   if (barber === null) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-6 text-center">
-        <div className="w-12 h-12 rounded-full bg-red-400/10 border border-red-400/25 flex items-center justify-center mb-4">
-          <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="min-h-screen bg-ivory flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-12 h-12 rounded-full bg-bordeaux/10 border border-bordeaux/25 flex items-center justify-center mb-4">
+          <svg className="w-5 h-5 text-bordeaux" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h2 className="text-white font-semibold mb-2">Compte non configuré</h2>
-        <p className="text-zinc-500 text-sm mb-6 max-w-xs">
+        <h2 className="text-vip-black font-playfair font-semibold text-lg mb-2">Compte non configuré</h2>
+        <p className="text-warm-gray text-sm mb-6 max-w-xs">
           Votre compte n'est associé à aucun barbier. Contactez l'administrateur.
         </p>
         <button
           onClick={handleLogout}
-          className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+          className="text-xs text-warm-gray hover:text-bordeaux transition-colors"
         >
           Déconnexion
         </button>
@@ -893,17 +879,21 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="flex items-center justify-between px-4 py-4 border-b border-zinc-900">
+    <div className="min-h-screen bg-ivory">
+      {/* Header */}
+      <header className="bg-vip-black flex items-center justify-between px-4 py-4">
         <div>
-          <div className="w-4 h-px bg-amber-400 mb-1.5" />
-          <h1 className="text-sm font-semibold tracking-[0.2em] uppercase text-white">{barber.name}</h1>
+          <p className="text-gold text-[10px] tracking-[0.25em] uppercase font-medium mb-0.5">Dashboard</p>
+          <h1 className="text-ivory font-playfair font-bold text-lg leading-none">
+            VIP Cut's
+            <span className="text-gold/60 font-normal text-sm ml-2">— {barber.name}</span>
+          </h1>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-zinc-600 text-xs hidden sm:block truncate max-w-[200px]">{session?.user?.email}</span>
+          <span className="text-warm-gray text-xs hidden sm:block truncate max-w-[200px]">{session?.user?.email}</span>
           <button
             onClick={handleLogout}
-            className="text-xs text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
+            className="text-xs text-warm-gray hover:text-bordeaux transition-colors flex items-center gap-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -914,15 +904,16 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <nav className="flex gap-1 px-3 py-2.5 border-b border-zinc-900 overflow-x-auto">
+      {/* Nav tabs */}
+      <nav className="flex gap-1 px-3 py-2 bg-vip-black border-t border-white/5 overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`shrink-0 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? 'bg-amber-400 text-zinc-950'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                ? 'bg-ivory text-vip-black'
+                : 'text-warm-gray hover:bg-white/5 hover:text-ivory'
             }`}
           >
             {tab.label}
