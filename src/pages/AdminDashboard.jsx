@@ -687,6 +687,53 @@ function TodayView({ barberId }) {
 
 // ─── Services view ────────────────────────────────────────────────────────────
 
+function InlineNumber({ value, onCommit, suffix, min, step = 1, className = '' }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(String(value))
+
+  function open() {
+    setDraft(String(value))
+    setEditing(true)
+  }
+
+  function commit() {
+    const parsed = step === 1 ? parseInt(draft, 10) : parseFloat(draft)
+    setEditing(false)
+    if (!isNaN(parsed) && parsed >= (min ?? 0) && parsed !== value) onCommit(parsed)
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter') { e.target.blur(); commit() }
+    if (e.key === 'Escape') setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        value={draft}
+        min={min}
+        step={step}
+        autoFocus
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKey}
+        className={`bg-white border border-ivory-border rounded-lg px-1.5 py-0.5 text-vip-black text-xs focus:outline-none focus:border-gold transition-colors w-16 ${className}`}
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={open}
+      title="Cliquer pour modifier"
+      className="text-warm-gray text-xs hover:text-gold transition-colors underline decoration-dotted underline-offset-2"
+    >
+      {value}{suffix}
+    </button>
+  )
+}
+
 function ServicesView() {
   const [services, setServices] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -704,9 +751,16 @@ function ServicesView() {
     if (error) setServices(prev => prev.map(s => s.id === id ? { ...s, active: !active } : s))
   }
 
+  async function updateField(id, field, value) {
+    const prev = services.find(s => s.id === id)?.[field]
+    setServices(p => p.map(s => s.id === id ? { ...s, [field]: value } : s))
+    const { error } = await supabase.from('services').update({ [field]: value }).eq('id', id)
+    if (error) setServices(p => p.map(s => s.id === id ? { ...s, [field]: prev } : s))
+  }
+
   return (
     <div>
-      <p className="text-warm-gray text-sm mb-5">Désactivez un service pour le masquer aux clients.</p>
+      <p className="text-warm-gray text-sm mb-5">Désactivez un service pour le masquer aux clients. Cliquez sur un prix ou une durée pour le modifier.</p>
       {loading ? <Spinner /> : (
         <div className="space-y-3">
           {services.map(s => (
@@ -716,7 +770,23 @@ function ServicesView() {
             >
               <div className="flex-1 min-w-0">
                 <p className="text-vip-black font-playfair font-semibold text-sm">{s.name}</p>
-                <p className="text-warm-gray text-xs mt-0.5">{s.duration_minutes} min · {s.price} €</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <InlineNumber
+                    value={s.duration_minutes}
+                    onCommit={v => updateField(s.id, 'duration_minutes', v)}
+                    suffix=" min"
+                    min={5}
+                    step={5}
+                  />
+                  <span className="text-ivory-border text-xs">·</span>
+                  <InlineNumber
+                    value={s.price}
+                    onCommit={v => updateField(s.id, 'price', v)}
+                    suffix=" €"
+                    min={1}
+                    step={0.5}
+                  />
+                </div>
                 {s.description && <p className="text-ivory-border text-xs mt-1 truncate">{s.description}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
