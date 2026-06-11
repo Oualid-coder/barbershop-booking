@@ -105,10 +105,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── Env vars ────────────────────────────────────────────────────────────────
-  const RESEND_API_KEY          = Deno.env.get('RESEND_API_KEY')
-  const FROM_EMAIL              = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
-  const SUPABASE_URL            = Deno.env.get('SUPABASE_URL')
+  const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY')
+  const FROM_EMAIL                = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
+  const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const ONESIGNAL_APP_ID          = Deno.env.get('ONESIGNAL_APP_ID') ?? 'b578b9f9-247f-4c6a-8bd2-a5af632d4b60'
+  const ONESIGNAL_API_KEY         = Deno.env.get('ONESIGNAL_API_KEY')
 
   if (!RESEND_API_KEY) {
     console.error('[notify-booking] RESEND_API_KEY is not set in secrets')
@@ -224,5 +226,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   console.log('[notify-booking] Email sent to', BARBER_EMAIL, '— id:', resendBody.id ?? 'unknown')
+
+  // ── OneSignal push (fire-and-forget) ─────────────────────────────────────────
+  if (ONESIGNAL_API_KEY) {
+    fetch('https://api.onesignal.com/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Key ${ONESIGNAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        app_id: ONESIGNAL_APP_ID,
+        included_segments: ['All'],
+        headings: { fr: 'Nouvelle réservation', en: 'New booking' },
+        contents: {
+          fr: `${escapeHtml(String(client_name))} — ${escapeHtml(String(service_name))} à ${time}`,
+          en: `${escapeHtml(String(client_name))} — ${escapeHtml(String(service_name))} at ${time}`,
+        },
+      }),
+    }).catch(err => console.error('[notify-booking] OneSignal push failed:', err))
+  } else {
+    console.warn('[notify-booking] ONESIGNAL_API_KEY not set — push skipped')
+  }
+
   return respond({ ok: true, email_id: resendBody.id ?? null })
 })

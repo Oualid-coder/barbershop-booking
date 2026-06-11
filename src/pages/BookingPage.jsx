@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { notifyNewBooking } from '../lib/onesignal'
 import {
   generateTimeSlots,
   getDayOfWeek,
@@ -234,16 +235,14 @@ export default function BookingPage() {
 
     setBooked(true)
 
-    supabase.functions.invoke('notify-booking', {
-      body: {
-        client_name:  clientName.trim(),
-        client_phone: clientPhone.trim(),
-        service_name: selectedService.name,
-        booking_date: selectedDate,
-        booking_time: selectedTime,
-        barber_id:    selectedBarber?.id ?? null,
-      },
-    }).catch(() => {})
+    notifyNewBooking({
+      barber_id:    selectedBarber?.id ?? null,
+      client_name:  clientName.trim(),
+      client_phone: clientPhone.trim(),
+      service_name: selectedService.name,
+      booking_date: selectedDate,
+      booking_time: selectedTime,
+    })
   }
 
   function handleReset() {

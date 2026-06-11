@@ -19,6 +19,41 @@ _(à compléter au fil du projet)_
 
 ## Décisions techniques
 
+### Notifications push — OneSignal Web Push
+
+**Décision →** Push envoyé via OneSignal REST API, appelé depuis l'Edge Function `notify-booking` (même fonction que l'email). Fire-and-forget : une panne OneSignal n'affecte pas la réponse client.
+
+**Architecture →**
+- SDK client (`OneSignalSDK.page.js` via CDN) : souscription du navigateur du barbier, initialisé au mount de `AdminDashboard`.
+- `src/lib/onesignal.js` :
+  - `initOneSignal()` — initialise le SDK, demande la permission push (admin uniquement).
+  - `notifyNewBooking(payload)` — wrapper fire-and-forget autour de `supabase.functions.invoke('notify-booking')`. Remplace l'appel inline dans BookingPage pour centraliser toute la logique notification.
+- Edge Function : après l'envoi email Resend, appelle `https://api.onesignal.com/notifications` avec `included_segments: ['All']` pour notifier tous les abonnés (les barbiers avec le dashboard ouvert).
+
+**Pourquoi `included_segments: ['All']` et non ciblage par `barber_id` →**
+- OneSignal ne connaît pas les `barber_id` Supabase. Cibler un utilisateur spécifique nécessiterait de stocker l'`external_user_id` OneSignal lors de l'abonnement.
+- Pour un barbershop solo (1-2 barbiers), notifier tous les abonnés est acceptable.
+- **Solution future** : `OneSignal.login(barber_id)` à l'init + `external_id` dans le payload push pour cibler un barbier précis.
+
+**Pourquoi `@onesignal/node-onesignal` est installé mais pas utilisé dans l'Edge Function →**
+- L'Edge Function est Deno — ne consomme pas `node_modules/`.
+- L'API REST OneSignal est appelée directement via `fetch` natif Deno.
+- Le package npm est disponible pour un éventuel contexte Node.js futur.
+
+**App ID** : `b578b9f9-247f-4c6a-8bd2-a5af632d4b60` (public, dans le frontend et l'Edge Function).
+
+**Secret à configurer dans Supabase → Edge Functions → Secrets :**
+- `ONESIGNAL_API_KEY` — REST API Key OneSignal (Dashboard → Settings → Keys & IDs).
+- Si absent, le push est silencieusement ignoré (`console.warn`), l'email est toujours envoyé.
+
+**Trade-offs →**
+- ✅ Push instantané dès qu'un client réserve, même si le dashboard est fermé
+- ✅ Panne OneSignal = invisible pour le client, email toujours envoyé
+- ⚠️ `included_segments: ['All']` notifie tous les abonnés — acceptable à 1-2 barbiers
+- ⚠️ Nécessite HTTPS en production (les push Web ne fonctionnent pas en HTTP)
+
+---
+
 ### Notifications email — Edge Function Deno, pas npm resend côté frontend
 
 **Décision →** Email envoyé via une Supabase Edge Function (Deno), appelée en fire-and-forget depuis le frontend avec `supabase.functions.invoke()`.

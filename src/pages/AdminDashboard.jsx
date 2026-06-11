@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
+import { initOneSignal } from '../lib/onesignal'
 import {
   generateTimeSlots,
   getDayOfWeek,
@@ -900,6 +901,8 @@ export default function AdminDashboard() {
   const [barber, setBarber]       = useState(undefined)
   const { session } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => { initOneSignal() }, [])
 
   useEffect(() => {
     if (!session) return
