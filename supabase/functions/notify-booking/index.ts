@@ -51,7 +51,7 @@ function buildHtml(
         <tr><td style="background:#09090b;padding:20px 28px;border-bottom:1px solid #27272a;">
           <div style="width:20px;height:2px;background:#fbbf24;margin-bottom:10px;"></div>
           <p style="margin:0;color:#fff;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;">
-            Barbershop
+            VIP Cut's
           </p>
         </td></tr>
         <tr><td style="padding:28px;">
@@ -85,7 +85,7 @@ function buildHtml(
           </table>
         </td></tr>
         <tr><td style="padding:14px 28px;border-top:1px solid #27272a;background:#09090b;">
-          <p style="margin:0;color:#3f3f46;font-size:11px;text-align:center;">Barbershop Booking · Notification automatique</p>
+          <p style="margin:0;color:#3f3f46;font-size:11px;text-align:center;">VIP Cut's · Coiffeur Barbier Paris 18e</p>
         </td></tr>
       </table>
     </td></tr>

@@ -12,7 +12,7 @@ export function initOneSignal() {
     await OneSignal.init({
       appId: APP_ID,
       notifyButton: { enable: false },
-      allowLocalhostAsSecureOrigin: true,
+      allowLocalhostAsSecureOrigin: import.meta.env.DEV,
     })
 
     resolveReady(OneSignal)

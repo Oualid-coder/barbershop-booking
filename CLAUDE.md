@@ -394,6 +394,196 @@ Chargées via Google Fonts dans `index.html`.
 
 SVG rasoir droit (`public/favicon.svg`) : manche noir+or, pivot or, lame noire, dos or.
 
+## Audit sécurité final — pré-livraison
+
+Audit réalisé le 2026-06-11. 9 points vérifiés.
+
+---
+
+### 1. ✅ OneSignal App ID exposé côté client — acceptable
+
+`b578b9f9-247f-4c6a-8bd2-a5af632d4b60` est dans `src/lib/onesignal.js`, donc dans le bundle frontend.
+
+**Pourquoi c'est safe →** L'App ID OneSignal est une clé publique par conception — équivalent de la `anon key` Supabase. Il identifie l'app, pas un utilisateur ni un droit d'écriture. La clé secrète est le **REST API Key** (`ONESIGNAL_API_KEY`), stocké uniquement dans les secrets Supabase Edge Functions, jamais côté client.
+
+**Correction appliquée →** `allowLocalhostAsSecureOrigin` désormais conditionnel à `import.meta.env.DEV` — ne s'active pas en production.
+
+---
+
+### 2. ✅ Routes /admin/* — toutes protégées
+
+Vérification dans `src/App.jsx` :
+
+| Route | Protection |
+|---|---|
+| `/admin` | `Navigate` redirect vers `/admin/dashboard` |
+| `/admin/login` | Public (intentionnel — page de connexion) |
+| `/admin/dashboard` | `ProtectedRoute` wrapping `AdminDashboard` |
+
+`ProtectedRoute` : spinner pendant `loading`, redirect vers `/admin/login` si `session === null`. Aucune route admin non protégée.
+
+**Correction appliquée →** Spinner de `ProtectedRoute` migré vers la palette VIP (ivory/gold). Aucun impact sécurité, mais évite un flash de l'ancienne palette noire avant la redirection.
+
+---
+
+### 3. ✅ manifest.json — aucune donnée sensible
+
+Contenu : `name`, `short_name`, `start_url`, `display`, `background_color`, `theme_color`, `icons` (référence vers `favicon.svg`). Zéro clé, credential ou donnée métier. Fichier public par nature (chargé par le navigateur sans auth).
+
+---
+
+### 4. ✅ Variables d'env Vercel côté client — toutes safe
+
+| Variable | Type | Pourquoi safe |
+|---|---|---|
+| `VITE_SUPABASE_URL` | Public | Endpoint PostgREST public, protégé par RLS |
+| `VITE_SUPABASE_ANON_KEY` | Public | Clé publique Supabase, droits limités par RLS |
+| `VITE_APP_URL` | Public | URL de l'app, sans valeur secrète |
+
+Les secrets réels (`RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ONESIGNAL_API_KEY`) ne sont **jamais préfixés `VITE_`** — Vite les exclut automatiquement du bundle.
+
+**Correction appliquée →** `.env.example` nettoyé : suppression de `BARBER_EMAIL` (vestige de l'ancienne approche env-var, remplacé par fetch DB depuis la migration 005). Les secrets Edge Function sont maintenant documentés en commentaire pour ne pas être copiés dans `.env`.
+
+---
+
+### 5. ✅ Edge Function — ONESIGNAL_API_KEY en secret Supabase
+
+Dans `supabase/functions/notify-booking/index.ts` :
+```typescript
+const ONESIGNAL_API_KEY = Deno.env.get('ONESIGNAL_API_KEY')
+```
+Jamais hardcodé. Si absent, le push est ignoré silencieusement avec `console.warn` — l'email est toujours envoyé. Zéro exposition dans le bundle frontend.
+
+---
+
+### 6. ✅ Workflow GitHub keep-alive — secret GitHub, pas dans le code
+
+Dans `.github/workflows/keep-alive.yml` :
+```yaml
+-H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}"
+```
+La clé est référencée via `secrets.SUPABASE_ANON_KEY` (GitHub Actions Secrets), jamais en clair dans le fichier. L'URL Supabase (`mdynhezcfkhysrwxduqe.supabase.co`) est dans le code — c'est l'endpoint public PostgREST, équivalent à `VITE_SUPABASE_URL`. Acceptable.
+
+---
+
+### 7. ✅ RLS policies — cohérentes après migrations 005 et 006
+
+| Table | anon | authenticated |
+|---|---|---|
+| `services` | SELECT | SELECT + INSERT + UPDATE + DELETE |
+| `bookings` | INSERT WHERE `status='pending'` (006 ✅) | SELECT + UPDATE + DELETE |
+| `business_hours` | SELECT | SELECT + INSERT + UPDATE + DELETE |
+| `blocked_slots` | SELECT | SELECT + INSERT + UPDATE + DELETE |
+| `barbers` | SELECT WHERE `active=true` | ALL |
+
+Points vérifiés :
+- `bookings_public_insert` : `WITH CHECK (status = 'pending')` — empêche l'injection de statut arbitraire ✅
+- `barbers_public_read` : `USING (active = true)` — un barbier inactif est invisible publiquement ✅
+- `bookings_admin_select` : lecture réservée aux sessions Auth — données clients (nom, tél) inaccessibles en anon ✅
+
+**Risque accepté documenté →** `services_admin_update` et `barbers_admin_all` permettent à tout utilisateur authentifié de modifier n'importe quel service/barbier (pas d'isolation par `barber_id`). Acceptable pour un barbershop solo/duo — à affiner avec des rôles PostgreSQL si multi-établissements.
+
+---
+
+### 8. ✅ XSS — nouveaux composants safe
+
+**`InlineNumber`** (`AdminDashboard.jsx`) :
+- `type="number"` : le navigateur refuse tout caractère non numérique nativement
+- `parseInt` / `parseFloat` au commit : convertit en nombre pur avant tout usage
+- React rend `{value}` et `{suffix}` comme **text nodes**, jamais via `innerHTML` — échappement automatique
+- Aucun `dangerouslySetInnerHTML`, aucun `eval()` dans l'ensemble du codebase
+
+**Barber cards** (`BookingPage.jsx`) :
+- `{barber.name.charAt(0)}` et `{barber.name}` : rendu React pur, XSS impossible
+- Données viennent de Supabase (admin-controlled), pas d'input utilisateur direct
+
+---
+
+### 9. ✅ .gitignore — fichiers sensibles exclus
+
+Vérification des entrées critiques :
+
+| Fichier/Dossier | Exclus |
+|---|---|
+| `.env` | ✅ |
+| `.env.local` | ✅ |
+| `.env.*.local` | ✅ |
+| `.claude/` | ✅ |
+| `CLAUDE.md` | ✅ |
+| `node_modules` | ✅ |
+| `dist` | ✅ |
+
+---
+
+### Résumé exécutif
+
+**9/9 points conformes.** Trois corrections appliquées lors de cet audit :
+1. `allowLocalhostAsSecureOrigin` conditionnel à `import.meta.env.DEV`
+2. `.env.example` nettoyé (suppression `BARBER_EMAIL` stale)
+3. `ProtectedRoute` spinner migré vers palette VIP
+
+**Risques résiduels acceptés (inchangés depuis l'audit du 2026-06-09) :**
+- Spam push via Edge Function (mitigé par UUID valide requis)
+- `admin = tout utilisateur authentifié` (acceptable solo/duo)
+- `@onesignal/node-onesignal` et `resend` npm installés mais inutilisés (surface supply chain inutile)
+
+---
+
+### AdminDashboard — optimisation performances chargement initial
+
+**Décision →** Extraction des 4 vues tab en fichiers séparés + `React.lazy()` + `Suspense`, `TodayView` reste inline (onglet par défaut, doit s'afficher sans délai async).
+
+**Fichiers créés →**
+- `src/components/admin/shared.jsx` — module partagé : `BookingCard`, `MoveModal`, `DayPanel`, `BookingSkeleton`, `CalendarSkeleton`, `Toggle`, `InlineNumber`, `Spinner`, `Empty`, constantes `STATUS_BADGE`, `DAY_NAMES`, helpers `getToday`, `localDateLabel`
+- `src/pages/admin/CalendarView.jsx` — lazy-loaded
+- `src/pages/admin/ServicesView.jsx` — lazy-loaded
+- `src/pages/admin/HoursView.jsx` — lazy-loaded
+- `src/pages/admin/QRView.jsx` — lazy-loaded
+
+**Pourquoi `TodayView` reste inline et non lazy →**
+- Onglet actif au mount — lazy-load ajouterait un délai perceptible à la première ouverture du dashboard.
+- Les 4 autres tabs sont chargés uniquement si l'admin les ouvre : ~0 KB JS initial pour CalendarView, ServicesView, HoursView, QRView.
+
+**Skeleton loaders (animate-pulse) plutôt que spinners →**
+- `BookingSkeleton` : simule la forme d'une card booking (heure + nom + badge) → moins de layout shift à l'apparition des vraies données.
+- `CalendarSkeleton` : simule la grille 7×6 → le layout ne "saute" pas quand les données arrivent.
+- Règle : spinner pour les actions (save en cours), skeleton pour les chargements de données.
+
+**`useCallback` systématique sur tous les handlers →**
+- Évite de recréer les fonctions à chaque render et de propager des re-renders inutiles vers `BookingCard`, `MoveModal`, `DayPanel`.
+- `handleStatusChange` et `handleMoved` dépendent uniquement de `load` / `fetchMonth` — eux-mêmes `useCallback`.
+
+**Merge de `useEffect` dans AdminDashboard →**
+- `initOneSignal()` (once) + fetch `barbers` (session-dépendant) fusionnés en un seul `useEffect([session])`.
+- Guard `useRef(false)` : garantit qu'`initOneSignal()` ne tourne qu'une seule fois même si `session` change.
+- Évite deux effets distincts avec un ordre d'exécution ambigu.
+
+**Trade-offs →**
+- ✅ JS initial allégé : CalendarView + qrcode.react chargés uniquement si l'admin ouvre l'onglet
+- ✅ Skeleton = meilleure perception de vitesse vs spinner
+- ✅ Handlers stables = moins de re-renders enfants
+- ⚠️ Premier accès à un tab lazy déclenche un micro-délai réseau — mitigé par le `Suspense` fallback
+
+### Google Fonts — optimisation chargement
+
+**Décision →** `rel="preload"` ajouté avant le `rel="stylesheet"` + `&display=swap` déjà présent dans l'URL.
+
+**Ce qui était déjà en place →**
+- `<link rel="preconnect">` pour `fonts.googleapis.com` et `fonts.gstatic.com` ✅
+- `&display=swap` dans l'URL Google Fonts → `font-display: swap` sur toutes les fonts ✅
+
+**Ajout →** `<link rel="preload" as="style" href="...">` avant le `<link rel="stylesheet">` — signale au navigateur de télécharger la CSS avec haute priorité dès le parsing du `<head>`, avant même que le render-blocking stylesheet ne soit évalué.
+
+**Pourquoi `font-display: swap` →**
+- Affiche le texte en font système dès que possible, remplace par Playfair/DM Sans quand chargées.
+- Évite le FOIT (Flash Of Invisible Text) — le texte reste lisible pendant le chargement.
+- Tradeoff : FOUT (Flash Of Unstyled Text) visible si fonts lentes — acceptable pour les fonts Google (généralement < 100 ms sur CDN).
+
+**Trade-offs →**
+- ✅ Fonts chargées plus tôt (preload hint au navigateur)
+- ✅ Texte toujours visible pendant le chargement (swap)
+- ⚠️ Deux `<link>` vers la même URL (preload + stylesheet) — redondance intentionnelle, comportement navigateur attendu
+
 ## TODO
 - [x] Schéma SQL Supabase
 - [x] Bootstrap React + Vite
