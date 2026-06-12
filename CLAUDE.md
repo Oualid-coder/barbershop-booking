@@ -608,6 +608,42 @@ Vérification des entrées critiques :
 - ✅ Texte toujours visible pendant le chargement (swap)
 - ⚠️ Deux `<link>` vers la même URL (preload + stylesheet) — redondance intentionnelle, comportement navigateur attendu
 
+## Nettoyage automatique des réservations
+
+**Workflow** : `.github/workflows/cleanup-old-bookings.yml`
+
+**Déclenchement** : cron `0 2 1 * *` (1er de chaque mois, 02:00 UTC) + `workflow_dispatch`.
+
+**Requête** :
+```
+DELETE /rest/v1/bookings?created_at=lt.<DATE_12_MOIS>
+apikey: SUPABASE_ANON_KEY
+Authorization: Bearer SUPABASE_SERVICE_ROLE_KEY
+Prefer: count=exact
+```
+
+**Pourquoi `service_role` comme Bearer et non `anon` →**
+- La RLS n'accorde pas `DELETE` au rôle `anon` — seul `authenticated` peut supprimer.
+- Le workflow s'exécute hors contexte utilisateur : impossible d'avoir un JWT de session Auth.
+- `service_role` bypasse RLS côté serveur — usage légitime dans un contexte de confiance (runner GitHub isolé, secret chiffré).
+- Le `apikey` reste l'anon key (convention Supabase : identifie le projet).
+
+**Comptage des suppressions →**
+PostgREST retourne HTTP 204 + header `Content-Range: */{N}` quand `Prefer: count=exact` est présent. Le script extrait `N` avec `grep -oE '[0-9]+$'` et le logge. Si `N = 0`, aucun log d'erreur — c'est un cas normal en début de vie de l'app.
+
+**Date de coupure →**
+`date -u -d '12 months ago' +%Y-%m-%dT%H:%M:%SZ` — syntaxe GNU date (runner ubuntu-latest). Retourne une date ISO 8601 UTC exacte.
+
+**Secret à configurer** : `SUPABASE_SERVICE_ROLE_KEY` dans GitHub → Settings → Secrets and variables → Actions. Documenté dans `.env.example` (commenté, jamais commité).
+
+**Cohérence RGPD →** La durée de conservation de 12 mois documentée dans `/privacy` est ainsi appliquée automatiquement en base — pas seulement déclarative.
+
+**Trade-offs →**
+- ✅ Suppression automatique conforme à la politique de confidentialité
+- ✅ `service_role` ne sort jamais du runner GitHub (secret chiffré au repos)
+- ⚠️ La suppression est définitive — pas de soft-delete ni corbeille
+- ⚠️ Si le workflow échoue silencieusement un mois, les données restent 1 mois de plus — surveiller les logs GitHub Actions
+
 ## Pages légales RGPD
 
 ### Pages créées
