@@ -466,6 +466,10 @@ export default function BookingPage() {
                     onChange={(e) => setClientName(e.target.value)}
                     placeholder="Jean Dupont"
                     error={errors.clientName}
+                    inputMode="text"
+                    autoCorrect="off"
+                    autoCapitalize="words"
+                    autoComplete="name"
                   />
                   <Field
                     label="Numéro de téléphone"
@@ -474,6 +478,8 @@ export default function BookingPage() {
                     onChange={(e) => setClientPhone(e.target.value)}
                     placeholder="06 00 00 00 00"
                     error={errors.clientPhone}
+                    inputMode="tel"
+                    autoComplete="tel"
                   />
                 </div>
 
@@ -498,14 +504,19 @@ export default function BookingPage() {
         )}
       </main>
 
-      <footer className="border-t border-ivory-border px-5 py-5 max-w-lg mx-auto w-full flex items-center justify-between">
-        <span className="text-ivory-border text-xs">© 2026 VIP Cut's</span>
-        <a
-          href="/admin/login"
-          className="text-warm-gray text-xs hover:text-vip-black transition-colors"
-        >
-          Espace professionnel
-        </a>
+      <footer className="border-t border-ivory-border px-5 py-5 max-w-lg mx-auto w-full flex items-center justify-between gap-3">
+        <span className="text-ivory-border text-xs shrink-0">© 2026 VIP Cut's</span>
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <a href="/privacy" className="text-warm-gray text-xs hover:text-vip-black transition-colors">
+            Confidentialité
+          </a>
+          <a href="/legal" className="text-warm-gray text-xs hover:text-vip-black transition-colors">
+            Mentions légales
+          </a>
+          <a href="/admin/login" className="text-warm-gray text-xs hover:text-vip-black transition-colors">
+            Espace professionnel
+          </a>
+        </div>
       </footer>
     </div>
   )
@@ -534,7 +545,7 @@ function PrimaryButton({ children, onClick, disabled = false }) {
   )
 }
 
-function Field({ label, type, value, onChange, placeholder, error }) {
+function Field({ label, type, value, onChange, placeholder, error, inputMode, autoCorrect, autoCapitalize, autoComplete = 'on' }) {
   return (
     <div>
       <label className="block text-warm-gray text-sm mb-2 font-medium">{label}</label>
@@ -543,7 +554,10 @@ function Field({ label, type, value, onChange, placeholder, error }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        autoComplete="on"
+        inputMode={inputMode}
+        autoCorrect={autoCorrect}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
         className={[
           'w-full bg-white border-2 rounded-xl px-4 py-4 text-vip-black placeholder-ivory-border',
           'focus:outline-none transition-colors text-base font-dm',

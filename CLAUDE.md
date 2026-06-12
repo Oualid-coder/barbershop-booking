@@ -608,6 +608,57 @@ Vérification des entrées critiques :
 - ✅ Texte toujours visible pendant le chargement (swap)
 - ⚠️ Deux `<link>` vers la même URL (preload + stylesheet) — redondance intentionnelle, comportement navigateur attendu
 
+## Pages légales RGPD
+
+### Pages créées
+
+| Route | Fichier | Accès |
+|---|---|---|
+| `/privacy` | `src/pages/PrivacyPage.jsx` | Public, sans ProtectedRoute |
+| `/legal` | `src/pages/LegalPage.jsx` | Public, sans ProtectedRoute |
+
+### Contenu — Politique de confidentialité (`/privacy`)
+
+- Responsable : VIP Cut's, 86 rue Joseph de Maistre, 75018 Paris
+- Données collectées : nom, téléphone, date/heure de réservation, service — rien d'autre
+- Finalité : gestion des réservations uniquement, aucune revente ni marketing
+- Base légale : exécution d'un contrat (RGPD art. 6(1)(b))
+- Conservation : 12 mois maximum
+- Droits RGPD : accès, rectification, effacement, limitation, opposition — contact par courrier
+- Recours CNIL mentionné
+- Hébergeurs documentés : Vercel Inc. (USA, CCT UE) + Supabase Inc. (serveurs Irlande, UE)
+- Cookies : aucun tiers, aucun tracking — seul cookie technique de session Auth (exempté)
+
+### Contenu — Mentions légales (`/legal`)
+
+- Éditeur : VIP Cut's, 86 rue Joseph de Maistre, 75018 Paris
+- Directeur de la publication : gérant de l'établissement
+- Hébergement Vercel + Supabase (coordonnées complètes)
+- Propriété intellectuelle : tous éléments réservés
+- Limitation de responsabilité
+- Renvoi vers `/privacy` pour les données personnelles
+- Droit applicable : droit français, tribunaux français compétents
+
+### Footer BookingPage mis à jour
+
+Le footer passe de 2 éléments (copyright + lien admin) à 4 :
+```
+© 2026 VIP Cut's          Confidentialité · Mentions légales · Espace professionnel
+```
+Flex wrappable pour mobile (`flex-wrap justify-end`) — les liens restent lisibles sur petits écrans.
+
+### Pourquoi `<a href>` et non `<Link>` dans le footer de BookingPage
+
+BookingPage utilise déjà `<a href>` pour `/admin/login` (navigation cross-context volontaire). Pour la cohérence dans le même composant et parce que les pages légales sont des pages "de sortie" rarement visitées depuis le tunnel de réservation, `<a>` suffit. Les pages légales elles-mêmes utilisent `<Link>` car elles importent `react-router-dom` pour leur navigation interne.
+
+### Design
+
+- Fond `bg-ivory`, typographie `font-dm` / `font-playfair` identique au reste du site
+- Header minimaliste : logo VIP Cut's (lien `/`) + lien "← Retour"
+- Sections avec `<h2>` Playfair, corps DM Sans warm-gray
+- Infos hébergeurs dans des cards `bg-white border-ivory-border` (cohérent avec les cards booking)
+- Footer propre avec liens croisés entre les deux pages légales
+
 ## Pentest simulé
 
 Audit réalisé le 2026-06-12. Tests exécutés avec `curl` contre le projet Supabase de production (`mdynhezcfkhysrwxduqe`).
