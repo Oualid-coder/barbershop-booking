@@ -564,6 +564,30 @@ Vérification des entrées critiques :
 - ✅ Handlers stables = moins de re-renders enfants
 - ⚠️ Premier accès à un tab lazy déclenche un micro-délai réseau — mitigé par le `Suspense` fallback
 
+### Onglet Compte — changement de mot de passe
+
+**Décision →** `AccountView` lazy-loadé, reçoit `email` en prop depuis `AdminDashboard` (via `session?.user?.email`).
+
+**Flow de validation →**
+1. Validation côté client : min 8 caractères + correspondance des deux nouveaux mots de passe.
+2. Re-authentification : `supabase.auth.signInWithPassword({ email, password: oldPassword })` — vérifie l'ancien mot de passe avant toute modification. Si échec → erreur inline "Mot de passe actuel incorrect", sans appel à `updateUser`.
+3. Mise à jour : `supabase.auth.updateUser({ password: newPassword })` — appelé uniquement si la re-auth réussit.
+
+**Pourquoi re-authentifier avant `updateUser` →**
+- `updateUser` ne demande pas de confirmation de l'ancien mot de passe. Sans cette étape, n'importe qui laissant son navigateur ouvert pourrait changer le mot de passe.
+- `signInWithPassword` avec les credentials courants est le pattern recommandé Supabase pour cette vérification.
+
+**UX →**
+- Messages d'erreur inline (badge bordeaux) sans rechargement de page.
+- Message de succès inline (badge gold), formulaire vidé après succès.
+- Bouton désactivé + spinner pendant l'opération.
+- `autoComplete="current-password"` / `"new-password"` pour les gestionnaires de mots de passe.
+
+**Trade-offs →**
+- ✅ Re-auth empêche les changements de mot de passe depuis une session laissée ouverte
+- ✅ Lazy-loadé — 0 KB JS supplémentaire si l'onglet n'est jamais ouvert
+- ⚠️ La re-auth via `signInWithPassword` crée une nouvelle session Supabase — comportement attendu, pas de side effect visible
+
 ### Google Fonts — optimisation chargement
 
 **Décision →** `rel="preload"` ajouté avant le `rel="stylesheet"` + `&display=swap` déjà présent dans l'URL.

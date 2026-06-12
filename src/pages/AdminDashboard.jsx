@@ -18,6 +18,7 @@ const CalendarView = lazy(() => import('./admin/CalendarView'))
 const ServicesView = lazy(() => import('./admin/ServicesView'))
 const HoursView    = lazy(() => import('./admin/HoursView'))
 const QRView       = lazy(() => import('./admin/QRView'))
+const AccountView  = lazy(() => import('./admin/AccountView'))
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'services', label: 'Services'    },
   { id: 'horaires', label: 'Horaires'    },
   { id: 'qr',       label: 'QR Code'     },
+  { id: 'compte',   label: 'Compte'      },
 ]
 
 // ─── Skeleton fallbacks for Suspense ─────────────────────────────────────────
@@ -251,6 +253,7 @@ export default function AdminDashboard() {
           {activeTab === 'services' && <ServicesView />}
           {activeTab === 'horaires' && <HoursView />}
           {activeTab === 'qr'       && <QRView />}
+          {activeTab === 'compte'   && <AccountView email={session?.user?.email} />}
         </Suspense>
       </main>
     </div>
