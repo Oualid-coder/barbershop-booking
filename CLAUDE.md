@@ -608,6 +608,252 @@ Vérification des entrées critiques :
 - ✅ Texte toujours visible pendant le chargement (swap)
 - ⚠️ Deux `<link>` vers la même URL (preload + stylesheet) — redondance intentionnelle, comportement navigateur attendu
 
+## Pentest simulé
+
+Audit réalisé le 2026-06-12. Tests exécutés avec `curl` contre le projet Supabase de production (`mdynhezcfkhysrwxduqe`).
+
+---
+
+### 1. Injection via formulaire de réservation
+
+#### 1a — XSS payload dans `client_name`
+```
+POST /rest/v1/bookings  { "client_name": "<script>alert(1)</script>", "status": "pending" }
+```
+**Résultat** : HTTP 201 — le payload est **stocké tel quel** en base.
+
+**Analyse** :
+- ✅ Aucune exécution côté base (PostgREST → requêtes paramétrées, pas d'interpolation SQL)
+- ✅ React escape automatiquement les valeurs dans le DOM (`{booking.client_name}` → text node, jamais `innerHTML`)
+- ✅ Template email : `escapeHtml()` transforme `<script>` en `&lt;script&gt;` avant interpolation HTML
+- **Verdict** : stockage accepté, mais le payload est inoffensif à tous les niveaux de rendu
+
+#### 1b — SQL injection dans `client_name`
+```
+POST /rest/v1/bookings  { "client_name": "' OR 1=1; --", "status": "pending" }
+```
+**Résultat** : HTTP 201 — stocké comme chaîne de texte brute.
+
+**Analyse** :
+- ✅ PostgREST encode les valeurs comme paramètres PostgreSQL (`$1`, `$2`…) — aucune interprétation SQL possible
+- ✅ La table `bookings` existe toujours après l'injection (`DROP TABLE` impossible dans ce vecteur)
+- **Verdict** : SQLi impossible via l'API REST Supabase
+
+#### 1c — Injection dans `client_phone`
+```
+POST /rest/v1/bookings  { "client_phone": "+33'; DROP TABLE bookings;", "status": "pending" }
+```
+**Résultat** : HTTP 201 — même analyse que 1b.
+
+**Note** : Les 3 bookings de test (2026-07-01, 10:00/11:00/12:00) ont été créés avec `status='pending'`. Ils sont visibles uniquement par un admin authentifié. **À supprimer manuellement** depuis le dashboard Supabase → Table `bookings`.
+
+---
+
+### 2. Bypass RLS
+
+#### 2a — Lecture des bookings (anon SELECT)
+```
+GET /rest/v1/bookings?select=*  (anon key, sans session Auth)
+```
+**Résultat** : HTTP 401 — `"permission denied for table bookings"` (PostgreSQL code 42501)
+
+**Analyse** : ✅ GRANT SELECT sur `bookings` n'est pas accordé au rôle `anon` (migration 004). Le refus arrive avant même l'évaluation des RLS policies.
+
+#### 2b — INSERT avec `status='confirmed'`
+```
+POST /rest/v1/bookings  { ..., "status": "confirmed" }
+```
+**Résultat** : HTTP 401 — `"new row violates row-level security policy"`
+
+**Analyse** : ✅ Migration 006 — `WITH CHECK (status = 'pending')` sur `bookings_public_insert`. Un client ne peut pas s'auto-confirmer.
+
+#### 2c — UPDATE services sans auth
+```
+PATCH /rest/v1/services?id=eq.<uuid>  { "price": 0 }  (anon key)
+```
+**Résultat** : HTTP 401 — `"permission denied for table services"`
+
+#### 2d — DELETE services sans auth
+```
+DELETE /rest/v1/services?id=eq.<uuid>  (anon key)
+```
+**Résultat** : HTTP 401 — `"permission denied for table services"`
+
+**Analyse 2c/2d** : ✅ GRANT UPDATE/DELETE sur `services` réservé à `authenticated` (migration 004).
+
+---
+
+### 3. Edge Function `notify-booking`
+
+#### 3a — `barber_id` non-UUID (path traversal tenté)
+```
+{ "barber_id": "../../etc/passwd" }
+```
+**Résultat** : HTTP 400 — `{"error":"Invalid barber_id format"}`
+
+#### 3b — Payload incomplet (champs manquants)
+```
+{ "client_name": "Test", "barber_id": "<uuid>" }  (sans phone, service, date, time)
+```
+**Résultat** : HTTP 400 — `{"error":"Missing required fields"}`
+
+#### 3c — Sans header `apikey`
+```
+POST /functions/v1/notify-booking  (aucun header Authorization)
+```
+**Résultat** : HTTP 401 — `{"code":"UNAUTHORIZED_NO_AUTH_HEADER","message":"Missing authorization header"}`
+
+#### 3d — UUID valide mais barbier inexistant
+```
+{ "barber_id": "00000000-0000-0000-0000-000000000000" }
+```
+**Résultat** : HTTP 404 — `{"error":"Barber not found"}` (message générique, sans exposer l'UUID reçu)
+
+#### 3e — JSON malformé
+```
+POST body: "not-json-at-all"
+```
+**Résultat** : HTTP 400 — `{"error":"Invalid JSON body"}`
+
+#### 3f — Query string injection dans `barber_id`
+```
+{ "barber_id": "49e6cc82-...valid...&select=email,password" }
+```
+**Résultat** : HTTP 400 — `{"error":"Invalid barber_id format"}` — la regex UUID rejette le `&` avant toute interpolation URL.
+
+#### 3g — Newline injection (header injection tenté)
+```
+{ "barber_id": "49e6cc82-...valid...%0aX-Injected: evil" }
+```
+**Résultat** : HTTP 400 — `{"error":"Invalid barber_id format"}` — le `%0a` contenu dans la chaîne JSON échoue à la validation UUID.
+
+**Bilan Edge Function** : ✅ 7/7 vecteurs bloqués.
+
+---
+
+### 4. Auth
+
+#### 4a — Lecture des bookings sans JWT
+```
+GET /rest/v1/bookings?select=*  (anon key, pas de header Authorization)
+```
+**Résultat** : HTTP 401 — `"permission denied for table bookings"` — même résultat qu'en 2a, double protection GRANT + RLS.
+
+#### 4b — JWT forgé (signature invalide)
+```
+Authorization: Bearer eyJ...<header>.<payload>.FAKESIGNATURE
+```
+**Résultat** : HTTP 401 — `{"code":"PGRST301","message":"JWT cryptographic operation failed"}` — Supabase vérifie la signature HMAC-SHA256 avec le `JWT_SECRET` côté serveur.
+
+#### 4c — `updateUser` sans token de session
+```
+PUT /auth/v1/user  { "password": "newpassword123" }  (sans Authorization)
+```
+**Résultat** : HTTP 401 — `"This endpoint requires a valid Bearer token"`
+
+#### 4d — `updateUser` avec l'anon key (pas de session utilisateur)
+```
+PUT /auth/v1/user  Authorization: Bearer <anon_key>
+```
+**Résultat** : HTTP 403 — `"invalid claim: missing sub claim"` — l'anon JWT n'a pas de `sub` (user ID), donc le changement de mot de passe est impossible sans session Auth réelle.
+
+**Note sur `/admin/dashboard`** : route protégée côté React (`ProtectedRoute`). Sans session valide, React redirige vers `/admin/login` avant tout rendu. Testé à l'API layer — les données sous-jacentes sont indépendamment protégées par RLS (voir 2a/4a).
+
+---
+
+### 🔴 Faille détectée : exposition `email` + `user_id` sur `barbers`
+
+**Vecteur** :
+```
+GET /rest/v1/barbers?active=eq.true&select=*  (anon key)
+```
+**Résultat** : HTTP 200 — retourne `id`, `name`, `email`, `user_id`, `created_at`, `active` pour tous les barbiers actifs.
+
+**Risques** :
+- `email` (zkrmg16@gmail.com) : PII du barbier, utilisable pour phishing/spam
+- `user_id` (UUID Auth) : reconnaissable, utile pour la reconnaissance Auth
+- `created_at` : minor info disclosure
+
+**Root cause** : migration 005 fait `GRANT SELECT ON barbers TO anon` — grants toutes les colonnes. La RLS policy `USING (active = true)` filtre les lignes mais pas les colonnes.
+
+**Fix** : Migration `008_restrict_barbers_columns.sql` — créée et à appliquer :
+```sql
+REVOKE SELECT ON barbers FROM anon;
+GRANT SELECT (id, name) ON barbers TO anon;
+```
+Le frontend ne sélectionne que `id` et `name` (`select('id, name')` dans BookingPage et AdminDashboard) — aucun impact fonctionnel.
+
+**À appliquer** dans Supabase → SQL Editor :
+```sql
+REVOKE SELECT ON barbers FROM anon;
+GRANT SELECT (id, name) ON barbers TO anon;
+```
+
+---
+
+### Résumé exécutif
+
+| Vecteur | Tests | ✅ Bloqués | 🔴 Failles |
+|---|---|---|---|
+| Injections (XSS, SQLi) | 3 | 3 (inoffensif) | 0 |
+| Bypass RLS | 4 | 4 | 0 |
+| Edge Function | 7 | 7 | 0 |
+| Auth | 4 | 4 | 0 |
+| Colonnes exposées | 1 | 0 | **1** |
+
+**1 faille réelle** : colonnes `email` + `user_id` lisibles via anon key sur `barbers`.
+**Fix** : migration `008_restrict_barbers_columns.sql` (à exécuter dans le dashboard Supabase).
+**Action complémentaire** : supprimer les 3 bookings de test (2026-07-01) depuis le dashboard Supabase.
+
+---
+
+## Tests
+
+### Configuration
+
+- **Framework** : Vitest v3 + jsdom (environment navigateur simulé)
+- **Setup** : `@testing-library/jest-dom` chargé dans `src/__tests__/setup.js`
+- **Config** : section `test` dans `vite.config.js` (pas de fichier `vitest.config` séparé)
+- **Commande** : `npm run test` → `vitest run` (mode CI, pas de watch)
+
+### Fichiers de tests
+
+| Fichier | Sujets | Tests |
+|---|---|---|
+| `src/__tests__/bookingUtils.test.js` | `generateTimeSlots`, `getDayOfWeek`, `formatDate` | 16 |
+| `src/__tests__/validation.test.js` | `validateClientName`, `validateClientPhone` | 18 |
+| `src/__tests__/onesignal.test.js` | `getNotificationPermission` | 4 |
+
+**Total : 38 tests, 3 suites — 100% passants**
+
+### Module créé : `src/lib/validation.js`
+
+Extrait de la logique de validation inline pour la rendre testable :
+- `validateClientName(name)` : vérifie non-vide, longueur ≥ 2, regex `/^[a-zA-ZÀ-ÿ\s'-]+$/` (lettres + accents + tiret + apostrophe). Retourne `null` si valide, message d'erreur sinon.
+- `validateClientPhone(phone)` : supprime les espaces, vérifie regex `/^(?:\+33|0033|0)[1-9]\d{8}$/` — accepte formats `06XXXXXXXX`, `+33XXXXXXXXX`, `0033XXXXXXXXX`. Retourne `null` si valide.
+
+### Cas limites couverts
+
+**generateTimeSlots** :
+- Créneau dont la fin coïncide exactement avec la fermeture (`t + duration <= close`) → inclus ✓
+- Créneau qui dépasserait la fermeture → exclu ✓
+- Plage trop courte pour un seul créneau → tableau vide ✓
+- Padding à deux chiffres (`08:05` pas `8:5`) ✓
+
+**Validation téléphone** :
+- `00612345678` (double zéro) → refusé — `[1-9]` après l'indicatif exclut le `0` ✓
+- Numéros avec espaces → nettoyés avant validation ✓
+
+**getNotificationPermission** :
+- `window.Notification` undefined (navigateur sans support push) → `'default'` via opérateur `?.` ✓
+- Mock `supabase` avec `vi.mock` pour éviter les imports de modules réels dans le test
+
+### Pourquoi pas de tests de composants React
+
+Les composants React du projet sont fortement couplés à Supabase (appels async au mount, RLS, sessions Auth). Mocker fidèlement la couche Supabase pour tester le comportement UI apporterait une couverture faible pour un coût de maintenance élevé. Les tests unitaires sur les fonctions pures (`bookingUtils`, `validation`, `onesignal`) couvrent les invariants les plus critiques sans fragiliser la suite sur les évolutions Supabase.
+
+---
+
 ## TODO
 - [x] Schéma SQL Supabase
 - [x] Bootstrap React + Vite
