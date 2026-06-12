@@ -125,11 +125,18 @@ export default function BookingPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: svc }, { data: hours }, { data: brbs }] = await Promise.all([
+      const [
+        { data: svc,   error: errSvc   },
+        { data: hours, error: errHours },
+        { data: brbs,  error: errBrbs  },
+      ] = await Promise.all([
         supabase.from('services').select('*').eq('active', true).order('price'),
         supabase.from('business_hours').select('*').order('day_of_week'),
         supabase.from('barbers').select('id, name').eq('active', true).order('name'),
       ])
+      if (errSvc)   console.error('[BookingPage] services:', errSvc)
+      if (errHours) console.error('[BookingPage] business_hours:', errHours)
+      if (errBrbs)  console.error('[BookingPage] barbers:', errBrbs)
       setServices(svc || [])
       setBusinessHours(hours || [])
       setBarbers(brbs || [])
