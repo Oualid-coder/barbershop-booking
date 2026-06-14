@@ -1103,6 +1103,67 @@ UPDATE barbers SET role = 'owner' WHERE name = 'Zo';
 
 ---
 
+## RLS — isolation des bookings par barbier (migration 013)
+
+### Contexte
+
+Avant la migration 013, la policy `bookings_admin_select` permettait à **tout utilisateur authentifié** de lire tous les bookings de tous les barbiers. Un barbier non-owner pouvait donc appeler l'API REST directement et voir les réservations de ses collègues (données clients : nom, téléphone).
+
+### Fonction `is_owner()`
+
+```sql
+CREATE OR REPLACE FUNCTION is_owner()
+RETURNS boolean
+LANGUAGE sql SECURITY DEFINER STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM barbers WHERE user_id = auth.uid() AND role = 'owner'
+  )
+$$;
+```
+
+**Pourquoi `SECURITY DEFINER` →**
+- La function s'exécute avec les droits du créateur (superuser), pas de l'appelant.
+- Sans ça, évaluer `SELECT FROM barbers` à l'intérieur d'une policy `bookings_admin_select` déclencherait récursivement la policy `barbers_admin_all`, pouvant causer une boucle ou une erreur.
+- C'est le pattern PostgreSQL standard pour les helpers de policy.
+
+**Pourquoi `STABLE` →**
+- PostgreSQL peut mettre le résultat en cache pour la durée d'une transaction.
+- `is_owner()` est appelé pour chaque ligne évaluée par la policy — sans `STABLE`, ce serait un SELECT barbers par ligne booking.
+
+### Nouvelles policies (SELECT / UPDATE / DELETE)
+
+```sql
+USING (
+  is_owner() OR
+  barber_id = (SELECT id FROM barbers WHERE user_id = auth.uid())
+)
+```
+
+- **Owner** : `is_owner()` → true → accès à tous les bookings (vue globale dashboard).
+- **Barbier** : `barber_id = <son propre id>` → accès uniquement à ses propres bookings.
+- Les deux conditions sont court-circuitées : si `is_owner()` est vrai, le sous-SELECT n'est pas exécuté.
+
+### Ce qui ne change pas
+
+- `bookings_public_insert` (anon, INSERT) : inchangée — les clients peuvent toujours réserver.
+- Tables `services`, `business_hours`, `blocked_slots`, `barbers`, `email_logs` : aucune policy modifiée.
+
+### Impact sur le dashboard
+
+- **TodayView / CalendarView en mode owner** : la requête sans filtre `barber_id` retourne tous les bookings — la RLS le permet car `is_owner()` est vrai.
+- **TodayView / CalendarView en mode barbier** : la requête avec `.eq('barber_id', barberId)` retourne uniquement ses bookings — la RLS le permet car `barber_id = son id`.
+- Si un barbier non-owner appelle l'API sans filtre : la RLS filtre automatiquement — il ne voit que ses bookings.
+
+### Trade-offs
+
+- ✅ Isolation réelle au niveau base de données, même via appel API direct
+- ✅ `SECURITY DEFINER` + `STABLE` = overhead minimal (cache par transaction)
+- ⚠️ Le sous-SELECT `(SELECT id FROM barbers WHERE user_id = auth.uid())` est évalué pour chaque ligne non-owner — index `barbers(user_id)` utile si la table grossit (actuellement < 10 barbiers, négligeable)
+- ⚠️ Si un barbier n'a pas de `barber_id` correspondant (compte Auth sans barbier), la condition est `NULL = ...` → false → aucun booking visible (comportement sûr par défaut)
+
+---
+
 ## TODO
 - [x] Schéma SQL Supabase
 - [x] Bootstrap React + Vite
