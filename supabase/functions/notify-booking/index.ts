@@ -106,7 +106,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── Env vars ────────────────────────────────────────────────────────────────
   const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY')
-  const FROM_EMAIL                = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
+  const FROM_EMAIL                = Deno.env.get('RESEND_FROM_EMAIL') ?? 'reservations@vipscut.fr'
   const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const ONESIGNAL_APP_ID          = Deno.env.get('ONESIGNAL_APP_ID') ?? 'b578b9f9-247f-4c6a-8bd2-a5af632d4b60'
