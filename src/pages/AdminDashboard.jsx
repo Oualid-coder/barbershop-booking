@@ -19,13 +19,23 @@ const ServicesView = lazy(() => import('./admin/ServicesView'))
 const HoursView    = lazy(() => import('./admin/HoursView'))
 const QRView       = lazy(() => import('./admin/QRView'))
 const AccountView  = lazy(() => import('./admin/AccountView'))
+const TeamView     = lazy(() => import('./admin/TeamView'))
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TABS = [
+const BASE_TABS = [
   { id: 'today',    label: "Aujourd'hui" },
   { id: 'calendar', label: 'Calendrier'  },
   { id: 'services', label: 'Services'    },
+  { id: 'horaires', label: 'Horaires'    },
+  { id: 'qr',       label: 'QR Code'     },
+  { id: 'compte',   label: 'Compte'      },
+]
+const OWNER_TABS = [
+  { id: 'today',    label: "Aujourd'hui" },
+  { id: 'calendar', label: 'Calendrier'  },
+  { id: 'services', label: 'Services'    },
+  { id: 'equipe',   label: 'Équipe'      },
   { id: 'horaires', label: 'Horaires'    },
   { id: 'qr',       label: 'QR Code'     },
   { id: 'compte',   label: 'Compte'      },
@@ -43,21 +53,22 @@ function TabSkeleton() {
 
 // ─── TodayView (inline — default tab, must render without async delay) ────────
 
-function TodayView({ barberId }) {
+function TodayView({ barberId, isOwner }) {
   const [bookings, setBookings]           = useState([])
   const [loading, setLoading]             = useState(true)
   const [movingBooking, setMovingBooking] = useState(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase
+    let q = supabase
       .from('bookings')
-      .select('*, services(name, duration_minutes, price)')
+      .select('*, services(name, duration_minutes, price), barbers(name)')
       .eq('booking_date', getToday())
-      .eq('barber_id', barberId)
       .order('booking_time')
+    if (!isOwner) q = q.eq('barber_id', barberId)
+    const { data } = await q
     setBookings(data || [])
     setLoading(false)
-  }, [barberId])
+  }, [barberId, isOwner])
 
   useEffect(() => { load() }, [load])
 
@@ -105,6 +116,7 @@ function TodayView({ barberId }) {
               booking={b}
               onStatusChange={handleStatusChange}
               onMove={setMovingBooking}
+              barberName={isOwner ? b.barbers?.name : undefined}
             />
           ))}
         </div>
@@ -140,7 +152,7 @@ export default function AdminDashboard() {
     if (!session) return
     supabase
       .from('barbers')
-      .select('id, name')
+      .select('id, name, role')
       .eq('user_id', session.user.id)
       .eq('active', true)
       .single()
@@ -190,6 +202,9 @@ export default function AdminDashboard() {
       </div>
     )
   }
+
+  const isOwner = barber?.role === 'owner'
+  const TABS    = isOwner ? OWNER_TABS : BASE_TABS
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -247,10 +262,11 @@ export default function AdminDashboard() {
       </nav>
 
       <main className="px-4 py-6 max-w-2xl mx-auto">
-        {activeTab === 'today' && <TodayView barberId={barber.id} />}
+        {activeTab === 'today' && <TodayView barberId={barber.id} isOwner={isOwner} />}
         <Suspense fallback={<TabSkeleton />}>
-          {activeTab === 'calendar' && <CalendarView barberId={barber.id} />}
-          {activeTab === 'services' && <ServicesView />}
+          {activeTab === 'calendar' && <CalendarView barberId={barber.id} isOwner={isOwner} />}
+          {activeTab === 'services' && <ServicesView isOwner={isOwner} />}
+          {activeTab === 'equipe'   && <TeamView />}
           {activeTab === 'horaires' && <HoursView />}
           {activeTab === 'qr'       && <QRView />}
           {activeTab === 'compte'   && <AccountView email={session?.user?.email} />}

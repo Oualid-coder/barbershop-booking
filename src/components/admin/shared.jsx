@@ -120,7 +120,7 @@ export function Empty({ message, sub }) {
 
 // ─── Booking card ─────────────────────────────────────────────────────────────
 
-export function BookingCard({ booking, onStatusChange, onMove }) {
+export function BookingCard({ booking, onStatusChange, onMove, barberName }) {
   const cancelled = booking.status === 'cancelled'
 
   return (
@@ -146,6 +146,9 @@ export function BookingCard({ booking, onStatusChange, onMove }) {
             {booking.services?.duration_minutes && ` · ${booking.services.duration_minutes} min`}
             {booking.services?.price != null && ` · ${booking.services.price} €`}
           </p>
+          {barberName && (
+            <p className="text-ivory-border text-xs mt-0.5">✂ {barberName}</p>
+          )}
         </div>
       </div>
 
@@ -362,7 +365,7 @@ export function MoveModal({ booking, onClose, onMoved }) {
 
 // ─── Day panel ────────────────────────────────────────────────────────────────
 
-export function DayPanel({ date, bookings, onClose, onStatusChange, onMove }) {
+export function DayPanel({ date, bookings, onClose, onStatusChange, onMove, isOwner }) {
   const label  = localDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })
   const active = bookings.filter(b => b.status !== 'cancelled').length
 
@@ -386,7 +389,7 @@ export function DayPanel({ date, bookings, onClose, onStatusChange, onMove }) {
           <Empty message="Aucune réservation" sub="Journée libre" />
         ) : (
           bookings.map(b => (
-            <BookingCard key={b.id} booking={b} onStatusChange={onStatusChange} onMove={onMove} />
+            <BookingCard key={b.id} booking={b} onStatusChange={onStatusChange} onMove={onMove} barberName={isOwner ? b.barbers?.name : undefined} />
           ))
         )}
       </div>
@@ -395,6 +398,45 @@ export function DayPanel({ date, bookings, onClose, onStatusChange, onMove }) {
 }
 
 // ─── Inline number editor ─────────────────────────────────────────────────────
+
+export function InlineText({ value, onCommit, placeholder = '', className = '' }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(value)
+
+  function open() { setDraft(value); setEditing(true) }
+
+  function commit() {
+    setEditing(false)
+    if (draft.trim() && draft.trim() !== value) onCommit(draft.trim())
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter') { e.target.blur(); commit() }
+    if (e.key === 'Escape') setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="text" value={draft} autoFocus
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit} onKeyDown={handleKey}
+        placeholder={placeholder}
+        className={`bg-white border border-ivory-border rounded-lg px-1.5 py-0.5 text-vip-black focus:outline-none focus:border-gold transition-colors ${className}`}
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={open}
+      title="Cliquer pour modifier"
+      className={`text-left hover:text-gold transition-colors underline decoration-dotted underline-offset-2 ${className}`}
+    >
+      {value || <span className="text-ivory-border italic">{placeholder}</span>}
+    </button>
+  )
+}
 
 export function InlineNumber({ value, onCommit, suffix, min, step = 1, className = '' }) {
   const [editing, setEditing] = useState(false)

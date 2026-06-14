@@ -995,6 +995,114 @@ Les composants React du projet sont fortement couplés à Supabase (appels async
 
 ---
 
+## Rôle owner — multi-barbiers
+
+### Migration 012 — colonne `role` sur `barbers`
+
+```sql
+ALTER TABLE barbers ADD COLUMN role TEXT NOT NULL DEFAULT 'barber' CHECK (role IN ('owner', 'barber'));
+UPDATE barbers SET role = 'owner' WHERE name = 'Zo';
+```
+
+**Pourquoi colonne et non table séparée →**
+- Un barbier a exactement un rôle → scalaire sur la même ligne, pas de JOIN.
+- CHECK constraint garantit que seules deux valeurs sont possibles en base.
+- Le DEFAULT `'barber'` évite un NOT NULL sans valeur lors des INSERT existants.
+
+**Pourquoi pas de RLS séparée par rôle →**
+- L'accès multi-barbier dans le dashboard est garanti par la logique applicative (filtre `barberId` conditionnel) et non par RLS.
+- RLS s'assure que seul un admin authentifié peut lire les bookings — le filtre par barbier est une couche UI au-dessus.
+- **Risque accepté** : un barbier non-owner pourrait appeler l'API directement sans filtre `barber_id` et lire tous les bookings. Acceptable pour un salon solo/duo. Solution future : RLS `bookings_admin_select` avec condition `barber_id = auth.uid()` ou table de rôles avec join.
+
+---
+
+### AdminDashboard — comportement conditionnel owner
+
+**Fetch barber** : `select('id, name, role')` — `role` récupéré une seule fois au mount.
+
+**Tabs conditionnels** :
+- `isOwner = barber.role === 'owner'`
+- `isOwner` → `OWNER_TABS` (incluant "Équipe" entre Services et Horaires)
+- sinon → `BASE_TABS` (sans "Équipe")
+
+**TodayView / CalendarView en mode owner →**
+- Reçoivent `isOwner` en prop.
+- Si `isOwner` : requête sans `.eq('barber_id', barberId)` → retourne tous les bookings de tous les barbiers.
+- Join `barbers(name)` dans le SELECT → chaque booking contient `b.barbers.name`.
+- `BookingCard` reçoit `barberName={isOwner ? b.barbers?.name : undefined}` → affiche "✂ {nom}" sous la ligne service.
+
+**Pourquoi montrer le nom du barbier seulement en mode owner →**
+- Un barbier non-owner voit uniquement ses propres bookings → le nom du barbier est toujours lui-même, redondant.
+- L'owner voit tous les barbiers → le nom est essentiel pour dispatcher les rendez-vous.
+
+---
+
+### Onglet Équipe — TeamView
+
+**Fichier** : `src/pages/admin/TeamView.jsx` (lazy-loaded, owner uniquement).
+
+**Features** :
+- Liste tous les barbiers (`id, name, email, active, role`) — les non-owner ont un Toggle actif/inactif.
+- Badge "Propriétaire" sur la row owner (pas de Toggle pour ne pas se désactiver soi-même).
+- Formulaire "Ajouter un barbier" : prénom + email + mot de passe temporaire → `supabase.functions.invoke('create-barber', {...})`.
+- Message de succès dismissible après création.
+- Bouton afficher/masquer mot de passe temporaire.
+- Note : le nouveau barbier peut changer son mot de passe depuis l'onglet Compte.
+
+**Pourquoi l'Edge Function pour créer un barbier →**
+- Créer un utilisateur Auth nécessite l'API admin Supabase (`POST /auth/v1/admin/users`) avec la `service_role` key.
+- La `service_role` key ne peut pas être dans le frontend → Edge Function.
+- L'Edge Function vérifie d'abord que l'appelant est bien un owner avant d'agir.
+
+---
+
+### Edge Function `create-barber`
+
+**Fichier** : `supabase/functions/create-barber/index.ts`.
+
+**Flow** :
+1. Extrait le JWT de l'header `Authorization: Bearer <jwt>`.
+2. Appelle `GET /auth/v1/user` avec ce JWT → vérifie que l'utilisateur existe et récupère son `id`.
+3. Lit `barbers?user_id=eq.{callerId}&select=role` avec service_role → vérifie `role === 'owner'`. Sinon HTTP 403.
+4. Valide les champs : `name`, `email` (regex), `password` (≥ 6 chars).
+5. `POST /auth/v1/admin/users` avec `email_confirm: true` → crée le compte Auth.
+6. `POST /rest/v1/barbers` → insère la ligne barbier (service_role, bypass RLS).
+7. En cas d'échec de l'insert barber : DELETE du compte Auth pour éviter les comptes orphelins.
+
+**Sécurité** :
+- Double vérification : JWT valide + rôle owner en base.
+- Email regex côté Edge Function (pas seulement côté client).
+- Mot de passe ≥ 6 chars (minimum Supabase Auth).
+- Cleanup atomique : si l'insert barber échoue, le compte Auth créé est supprimé.
+
+**Trade-offs →**
+- ✅ `service_role` jamais côté client
+- ✅ Rollback : pas de compte Auth orphelin sans barbier associé
+- ⚠️ Si le DELETE de cleanup échoue après l'échec de l'insert barber → compte Auth orphelin sans barbier (rare, loggé)
+- ⚠️ Le mot de passe est transmis en clair dans le body JSON — acceptable car HTTPS en production
+
+---
+
+### ServicesView — gestion complète (owner)
+
+**Ajouts owner-only** :
+- `InlineText` pour le nom du service (édition click-to-edit, même pattern que `InlineNumber`).
+- `InlineText` pour la description (placeholder "Ajouter une description…" si vide).
+- Bouton "Supprimer ce service" → confirmation inline (pas de modal) → DELETE + filtre optimistic.
+- Formulaire "+ Ajouter un service" en bas : nom*, description, durée, prix → INSERT avec `active: true` + tri par prix.
+
+**Pourquoi confirmation inline et non modal →**
+- Un modal pour une action rare (supprimer un service) est overkill.
+- La confirmation inline (deux boutons dans la card) est plus légère et garde le contexte visible.
+- Le `confirmDelete === s.id` state garantit qu'une seule carte est en état de confirmation à la fois.
+
+**InlineText** (`src/components/admin/shared.jsx`) :
+- Pattern identique à `InlineNumber` : affichage statique → click → input autoFocus → blur/Enter commit → Escape annule.
+- `value || placeholder` en mode display : si la valeur est vide, affiche le placeholder en italique.
+- `onCommit` appelé uniquement si `draft.trim()` non vide et différent de la valeur actuelle.
+
+---
+
 ## TODO
 - [x] Schéma SQL Supabase
 - [x] Bootstrap React + Vite

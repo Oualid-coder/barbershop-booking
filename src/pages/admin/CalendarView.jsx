@@ -39,7 +39,7 @@ function getCalendarDays(year, month) {
   return days
 }
 
-export default function CalendarView({ barberId }) {
+export default function CalendarView({ barberId, isOwner }) {
   const now  = new Date()
   const [year, setYear]                    = useState(now.getFullYear())
   const [month, setMonth]                  = useState(now.getMonth())
@@ -52,13 +52,14 @@ export default function CalendarView({ barberId }) {
   const fetchMonth = useCallback(async (y, m) => {
     setLoading(true)
     const pad = n => String(n).padStart(2, '0')
-    const { data } = await supabase
+    let q = supabase
       .from('bookings')
-      .select('*, services(name, duration_minutes, price)')
+      .select('*, services(name, duration_minutes, price), barbers(name)')
       .gte('booking_date', `${y}-${pad(m + 1)}-01`)
       .lte('booking_date', `${y}-${pad(m + 1)}-${pad(new Date(y, m + 1, 0).getDate())}`)
-      .eq('barber_id', barberId)
       .order('booking_time')
+    if (!isOwner) q = q.eq('barber_id', barberId)
+    const { data } = await q
 
     const grouped = {}
     ;(data || []).forEach(b => {
@@ -67,7 +68,7 @@ export default function CalendarView({ barberId }) {
     })
     setBookingsByDate(grouped)
     setLoading(false)
-  }, [barberId])
+  }, [barberId, isOwner])
 
   useEffect(() => { fetchMonth(year, month) }, [year, month, fetchMonth])
 
@@ -201,6 +202,7 @@ export default function CalendarView({ barberId }) {
                 onClose={() => setSelectedDate(null)}
                 onStatusChange={handleStatusChange}
                 onMove={setMovingBooking}
+                isOwner={isOwner}
               />
             </div>
           )}
