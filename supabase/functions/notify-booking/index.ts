@@ -172,6 +172,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const BARBER_EMAIL: string = barberRows[0].email
 
+  // ── Rate limiting : max 20 emails par barbier par heure ─────────────────────
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
+  let countRes: Response
+  try {
+    countRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/email_logs?barber_id=eq.${barber_id}&created_at=gte.${oneHourAgo}&select=id`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          Prefer: 'count=exact',
+        },
+      }
+    )
+  } catch (networkErr) {
+    console.error('[notify-booking] Cannot reach email_logs:', networkErr)
+    return respond({ error: 'Network error reaching Supabase' }, 502)
+  }
+
+  const countHeader = countRes.headers.get('content-range') ?? ''
+  const emailCount  = parseInt(countHeader.split('/')[1] ?? '0', 10)
+
+  if (emailCount >= 20) {
+    console.warn('[notify-booking] Rate limit reached for barber', barber_id, '— count:', emailCount)
+    return respond({ error: 'Too many notifications. Try again later.' }, 429)
+  }
+
   // ── Build email ─────────────────────────────────────────────────────────────
   const formattedDate = formatDate(String(booking_date))
   const time          = String(booking_time).slice(0, 5)
@@ -226,6 +254,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   console.log('[notify-booking] Email sent to', BARBER_EMAIL, '— id:', resendBody.id ?? 'unknown')
+
+  // ── Log email pour rate limiting (fire-and-forget) ───────────────────────────
+  fetch(`${SUPABASE_URL}/rest/v1/email_logs`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ barber_id }),
+  }).catch(err => console.error('[notify-booking] email_logs insert failed:', err))
 
   // ── OneSignal push (fire-and-forget) ─────────────────────────────────────────
   if (ONESIGNAL_API_KEY) {

@@ -234,6 +234,8 @@ export default function BookingPage() {
         setSubmitError("Ce créneau vient d'être réservé. Veuillez en choisir un autre.")
         setStep(3)
         setSelectedTime(null)
+      } else if (error.message?.includes('RATE_LIMIT_EXCEEDED')) {
+        setSubmitError('Vous avez atteint la limite de réservations (3 par 24h). Contactez le salon directement.')
       } else {
         setSubmitError('Une erreur est survenue. Veuillez réessayer.')
       }

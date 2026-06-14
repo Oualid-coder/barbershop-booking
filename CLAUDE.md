@@ -608,6 +608,60 @@ Vérification des entrées critiques :
 - ✅ Texte toujours visible pendant le chargement (swap)
 - ⚠️ Deux `<link>` vers la même URL (preload + stylesheet) — redondance intentionnelle, comportement navigateur attendu
 
+## Rate limiting
+
+### 1. Email — Edge Function `notify-booking` (max 20/heure par barbier)
+
+**Table** : `email_logs (id uuid PK, barber_id uuid, created_at timestamptz)` — migration 010.
+
+**Flow** :
+1. Après résolution du barbier, avant l'envoi Resend : COUNT des lignes `email_logs` où `barber_id = X` et `created_at >= now() - 1h` via `Prefer: count=exact` → header `Content-Range: */{N}`.
+2. Si `N >= 20` → HTTP 429, log warning, retour immédiat sans envoi email ni push.
+3. Si ok → envoi email → INSERT dans `email_logs` (fire-and-forget, n'affecte pas la réponse client).
+
+**Pourquoi `email_logs` séparée et non un comptage sur `bookings` →**
+- `bookings` peut être vidée (RGPD, cleanup), ce qui fausserait le comptage de rate limit.
+- `email_logs` a un cycle de vie indépendant — conçu pour le comptage, pas pour les données métier.
+- L'INSERT dans `email_logs` est fire-and-forget : une panne de l'insert ne bloque pas la confirmation client.
+
+**Pourquoi `service_role` pour `email_logs` →**
+- Table sans GRANT `anon` ni `authenticated` — RLS activé, aucune policy publique.
+- Seul `service_role` (contexte Edge Function) peut y accéder. Inaccessible depuis le frontend ou l'API publique.
+
+**Seuil choisi : 20/heure** — Un barbershop solo reçoit rarement plus de 10 réservations/heure. 20 laisse une marge raisonnable tout en bloquant les boucles d'abus (spam d'emails via l'anon key).
+
+---
+
+### 2. Réservations — Trigger PostgreSQL (max 3/24h par numéro de téléphone)
+
+**Migration 011** : fonction `check_booking_rate_limit()` + trigger `trg_booking_rate_limit` BEFORE INSERT sur `bookings`.
+
+**Logique** :
+```sql
+SELECT COUNT(*) FROM bookings
+ WHERE client_phone = NEW.client_phone
+   AND created_at >= now() - interval '24 hours';
+IF count >= 3 → RAISE EXCEPTION 'RATE_LIMIT_EXCEEDED'
+```
+
+**Pourquoi un trigger et non une vérification frontend →**
+- Le frontend est contournable (appel direct à l'API REST Supabase avec l'anon key).
+- Un trigger BEFORE INSERT s'exécute dans PostgreSQL, inside la transaction — impossible à bypasser via l'API.
+- `RAISE EXCEPTION` annule l'INSERT atomiquement, aucune donnée partielle.
+
+**Propagation au frontend →**
+- Supabase renvoie le message d'exception PostgreSQL dans `error.message`.
+- `BookingPage.jsx` détecte `error.message?.includes('RATE_LIMIT_EXCEEDED')` et affiche : *"Vous avez atteint la limite de réservations (3 par 24h). Contactez le salon directement."*
+- Les autres erreurs restent sur le message générique.
+
+**Seuil choisi : 3/24h par téléphone** — protège contre les boucles de réservation automatisées. Un client légitime n'a pas besoin de plus de 3 créneaux en 24h pour plusieurs membres d'une famille — dans ce cas, il peut appeler le salon.
+
+**Trade-offs →**
+- ✅ Rate limiting au niveau base de données, impossible à bypasser côté client
+- ✅ `email_logs` isolée du cycle de vie des données métier
+- ⚠️ Le trigger parcourt `bookings` par `client_phone` — index utile si la table grossit (actuellement < 1000 lignes, négligeable)
+- ⚠️ Un numéro partagé (téléphone de famille) peut être bloqué après 3 réservations distinctes — rare mais possible
+
 ## Nettoyage automatique des réservations
 
 **Workflow** : `.github/workflows/cleanup-old-bookings.yml`
