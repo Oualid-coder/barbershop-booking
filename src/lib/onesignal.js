@@ -11,6 +11,7 @@ export function initOneSignal() {
   window.OneSignalDeferred.push(async (OneSignal) => {
     await OneSignal.init({
       appId: APP_ID,
+      safari_web_id: 'web.onesignal.auto.5abdae74-1423-41c2-a45a-5cf3c8870ffd',
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: import.meta.env.DEV,
     })
