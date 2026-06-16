@@ -218,7 +218,32 @@ export default function AdminDashboard() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {notifPerm !== 'granted' && notifPerm !== 'denied' && (
+          {notifPerm === 'granted' ? (
+            <button
+              disabled
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-green-500/40 text-green-400 bg-green-500/10 cursor-default"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="hidden sm:inline">Notifications activées</span>
+            </button>
+          ) : notifPerm === 'denied' ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <button
+                disabled
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-bordeaux/40 text-bordeaux bg-bordeaux/10 cursor-default"
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="hidden sm:inline">Notifications bloquées</span>
+              </button>
+              <p className="text-[10px] text-warm-gray hidden sm:block text-right">
+                Activez-les dans les paramètres de votre navigateur
+              </p>
+            </div>
+          ) : (
             <button
               onClick={handleEnableNotifications}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gold/40 text-gold hover:bg-gold/10 transition-colors"

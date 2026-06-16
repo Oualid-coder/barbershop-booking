@@ -305,9 +305,6 @@ export default function BookingPage() {
               86 rue Joseph de Maistre · 75018 Paris
             </p>
           </div>
-          <div className="opacity-25 pointer-events-none select-none">
-            <RazorDecor />
-          </div>
         </div>
       </header>
 
