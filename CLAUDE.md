@@ -1164,6 +1164,118 @@ USING (
 
 ---
 
+## Calendrier owner v2
+
+### Contexte
+
+Le `CalendarView` s'adapte automatiquement au rôle : les barbiers non-owner gardent l'ancien comportement (DayPanel + filtre par leur `barberId`). L'owner (Zo) obtient une vue enrichie : sélecteur de barbier, dots colorés, agenda horaire, formulaire de création.
+
+---
+
+### 1. Sélecteur de barbiers (chips)
+
+**Position** : barre horizontale scrollable au-dessus du calendrier, visible uniquement si `isOwner=true`.
+
+**Couleurs** : palette fixe `BARBER_COLORS = ['#C9A84C', '#6B1E2A', '#2A6B4A', '#1E3A6B', '#6B5E1E']` — attribuée par index à chaque barbier trié par nom. Identique dans les chips, les dots, et les blocs agenda.
+
+**Comportement** :
+- `selectedBarberId` state → filtre `fetchMonth` sur ce barbier uniquement.
+- Cliquer une chip ferme le DayPanel ouvert (`setSelectedDate(null)`) puis re-fetch le mois.
+- Le premier barbier de la liste est sélectionné au mount.
+
+**Séquence de mount (owner)** :
+1. `useEffect([isOwner])` → `GET /barbers?active=true&order=name` → `setBarbers(withColors)` → `setSelectedBarberId(first.id)`
+2. `setSelectedBarberId` change la ref `fetchMonth` (via `useCallback`) → `useEffect([fetchMonth])` se re-déclenche → fetch réel du mois.
+3. Pendant l'étape 1, `fetchMonth` retourne early si `isOwner && !selectedBarberId` → loading reste true → skeleton affiché.
+
+**Pourquoi retourner early plutôt que fetch sans filtre →**
+Évite un fetch inutile "tous les bookings" pendant la fraction de seconde avant que `selectedBarberId` soit défini.
+
+---
+
+### 2. Dots colorés
+
+Le dot sur chaque jour du calendrier prend la couleur du barbier sélectionné pour l'owner, et reste `#C9A84C` (gold) pour les non-owners.
+
+```js
+const dotColor = useMemo(
+  () => isOwner
+    ? (barbers.find(b => b.id === selectedBarberId)?.color ?? '#C9A84C')
+    : '#C9A84C',
+  [isOwner, barbers, selectedBarberId],
+)
+```
+
+Quand la cellule est sélectionnée (`isSelected`), le dot passe en `#ffffff` pour contraster sur le fond `bg-vip-black`.
+
+---
+
+### 3. AgendaPanel (vue grille horaire owner)
+
+**Composant** : `AgendaPanel` défini dans `CalendarView.jsx` (non exporté, local au module).
+
+**Grille** : `AGENDA_SLOTS` — 20 slots de 30 min de 09:00 à 18:30, générés au chargement du module (constante, pas recalculée). Un marker "19:00" est rendu en bas (non-interactif).
+
+**Mise en page** :
+- Colonne gauche (`w-14`) : label heure, affiché seulement sur les slots `:00` pour réduire le bruit.
+- Colonne droite : bloc booking coloré ou slot vide.
+- Hauteur fixe `minHeight: 48px` par slot — scrollable via `maxHeight: 22rem` sur le conteneur.
+
+**Booking block** :
+```jsx
+style={{
+  backgroundColor: `${color}18`,  // opacity ~10%
+  borderLeft: `3px solid ${color}`,
+}}
+```
+Affiche : nom client (Playfair), service + durée. Si annulé : opacity 40% + label "Annulé".
+
+**Pourquoi une seule résa par slot →**
+La contrainte `UNIQUE(booking_date, booking_time)` en base garantit au maximum 1 booking par créneau horaire. L'AgendaPanel en profite : `bookingBySlot` est un objet `{slot → booking}`, pas un tableau.
+
+---
+
+### 4. CreateBookingForm + Migration 014
+
+**Composant** : `CreateBookingForm` — inline sous le header de l'AgendaPanel, affiché au clic du bouton "+ Créer".
+
+**Fields** : barbier (select, pré-sélectionné sur le barbier actif), heure (select 30-min), service (fetch lazy au mount du form), nom client, téléphone.
+
+**Insert** :
+```js
+await supabase.from('bookings').insert({
+  barber_id, service_id, booking_date, booking_time,
+  client_name, client_phone,
+  status: 'confirmed',  // admin-created → directement confirmé
+})
+```
+
+**Pourquoi migration 014 nécessaire →**
+- `bookings_public_insert` (migration 006) : `FOR INSERT TO anon WITH CHECK (status='pending')` — ne couvre pas `authenticated`.
+- Sans policy INSERT pour `authenticated`, PostgreSQL refuse l'insert même avec le GRANT (RLS activé = deny implicite sans policy permissive).
+- Migration 014 : `CREATE POLICY bookings_owner_insert FOR INSERT TO authenticated WITH CHECK (is_owner() AND status IN ('pending','confirmed'))`. Uniquement les owners peuvent insérer ; status limité à pending/confirmed.
+
+**Après succès** : `onCreated()` → `fetchMonth(year, month)` → dots et agenda se mettent à jour.
+
+---
+
+### 5. TeamView — toggle owner
+
+Retiré `{barber.role !== 'owner' && ...}` autour du Toggle dans `BarberRow`. L'owner peut désormais se désactiver/réactiver. Quand `active=false`, son profil n'est plus visible aux clients (RLS `barbers_public_read : USING (active = true)`).
+
+---
+
+### Contraintes techniques respectées
+
+- `useCallback` : `fetchMonth`, `prevMonth`, `nextMonth`, `handleStatusChange`, `handleMoved`.
+- `useMemo` : `calendarDays`, `dotColor`, `bookingBySlot`, `active` (dans AgendaPanel), `selectedBarber`.
+- Zéro librairie supplémentaire.
+- `BookingCard` n'est plus importé dans CalendarView (DayPanel le consomme en interne).
+- Import `bookingUtils` retiré (MoveModal gère ses propres slots en interne depuis shared.jsx).
+- Non-owner : `DayPanel` + `MoveModal` inchangés.
+
+---
+
 ## TODO
 - [x] Schéma SQL Supabase
 - [x] Bootstrap React + Vite

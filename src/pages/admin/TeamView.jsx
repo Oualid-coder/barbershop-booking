@@ -19,12 +19,10 @@ function BarberRow({ barber, onToggle }) {
         </div>
         <p className="text-warm-gray text-xs mt-0.5 truncate">{barber.email}</p>
       </div>
-      {barber.role !== 'owner' && (
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-warm-gray text-xs">{barber.active ? 'Actif' : 'Inactif'}</span>
-          <Toggle checked={barber.active} onChange={v => onToggle(barber.id, v)} label={`Activer ${barber.name}`} />
-        </div>
-      )}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-warm-gray text-xs">{barber.active ? 'Actif' : 'Inactif'}</span>
+        <Toggle checked={barber.active} onChange={v => onToggle(barber.id, v)} label={`Activer ${barber.name}`} />
+      </div>
     </div>
   )
 }
