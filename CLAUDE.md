@@ -1284,3 +1284,37 @@ Retiré `{barber.role !== 'owner' && ...}` autour du Toggle dans `BarberRow`. L'
 - [x] RLS policies
 - [ ] Déploiement Vercel
 - [x] Génération QR code
+
+## Suppression du statut pending (migration 015)
+
+**Décision →** Toutes les réservations sont créées directement en `status = 'confirmed'`. Le statut `pending` est abandonné.
+
+**Changements appliqués :**
+- `BookingPage.jsx` : INSERT avec `status: 'confirmed'`
+- `BookingCard` (shared.jsx) : bouton "Confirmer" supprimé
+- `AgendaPanel` (CalendarView.jsx) : bouton "Confirmer" supprimé
+- Migration `015_confirmed_only.sql` :
+  - `bookings_public_insert` : `WITH CHECK (status = 'confirmed')`
+  - `check_booking_rate_limit()` : compte `status = 'confirmed'` au lieu de `'pending'`
+
+**Pourquoi →** Un barbier ne doit pas avoir à confirmer manuellement chaque réservation client. La confirmation est implicite dès la création.
+
+**Risque →** Le statut `pending` reste valide en base (pas de migration ALTER TABLE) — les éventuelles anciennes résa restent lisibles. Seuls les nouveaux inserts sont bloqués à `confirmed` par RLS.
+
+---
+
+## Onglet Historique (owner uniquement)
+
+**Fichier →** `src/pages/admin/HistoryView.jsx` (lazy-loaded, owner uniquement via OWNER_TABS).
+
+**Features :**
+- Fetch toutes les résa avec `services(name, duration_minutes)` et `barbers(name)`, triées par date DESC puis heure DESC
+- Filtres combinables : statut (Toutes / Confirmées / Annulées) + barbier (chips colorées, palette BARBER_COLORS)
+- Recherche client JS côté client (nom ou téléphone) — pas de requête supplémentaire
+- Pagination "Voir plus" par tranches de 20 — pas de chargement paginé côté serveur (volume faible)
+- Chip barbier colorée par index (même palette que CalendarView)
+
+**Pourquoi pagination client et non serveur →**
+Un barbershop génère < 1000 résa/an. Charger tout d'un coup + filtrer JS est plus simple et aussi rapide que la pagination PostgreSQL pour ce volume.
+
+**Position dans OWNER_TABS →** Entre 'qr' et 'compte' — vue consultation, pas de gestion active.

@@ -224,7 +224,7 @@ export default function BookingPage() {
       client_phone: clientPhone.trim(),
       booking_date: selectedDate,
       booking_time: selectedTime,
-      status:       'pending',
+      status:       'confirmed',
     })
 
     setSubmitting(false)

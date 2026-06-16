@@ -306,14 +306,6 @@ function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCre
                           {booking.status === 'confirmed' ? 'Confirmé' : booking.status === 'cancelled' ? 'Annulé' : 'En attente'}
                         </span>
                         <div className="flex gap-2 mt-2">
-                          {booking.status === 'pending' && (
-                            <button
-                              onClick={() => onStatusChange(booking.id, 'confirmed')}
-                              className="text-xs px-2.5 py-1.5 rounded-lg bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 transition-colors font-medium"
-                            >
-                              Confirmer
-                            </button>
-                          )}
                           {booking.status !== 'cancelled' && (
                             <button
                               onClick={() => onStatusChange(booking.id, 'cancelled')}

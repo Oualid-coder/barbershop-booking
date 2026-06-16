@@ -20,6 +20,7 @@ const HoursView    = lazy(() => import('./admin/HoursView'))
 const QRView       = lazy(() => import('./admin/QRView'))
 const AccountView  = lazy(() => import('./admin/AccountView'))
 const TeamView     = lazy(() => import('./admin/TeamView'))
+const HistoryView  = lazy(() => import('./admin/HistoryView'))
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,13 +33,14 @@ const BASE_TABS = [
   { id: 'compte',   label: 'Compte'      },
 ]
 const OWNER_TABS = [
-  { id: 'today',    label: "Aujourd'hui" },
-  { id: 'calendar', label: 'Calendrier'  },
-  { id: 'services', label: 'Services'    },
-  { id: 'equipe',   label: 'Équipe'      },
-  { id: 'horaires', label: 'Horaires'    },
-  { id: 'qr',       label: 'QR Code'     },
-  { id: 'compte',   label: 'Compte'      },
+  { id: 'today',      label: "Aujourd'hui" },
+  { id: 'calendar',   label: 'Calendrier'  },
+  { id: 'services',   label: 'Services'    },
+  { id: 'equipe',     label: 'Équipe'      },
+  { id: 'horaires',   label: 'Horaires'    },
+  { id: 'qr',         label: 'QR Code'     },
+  { id: 'historique', label: 'Historique'  },
+  { id: 'compte',     label: 'Compte'      },
 ]
 
 // ─── Skeleton fallbacks for Suspense ─────────────────────────────────────────
@@ -293,8 +295,9 @@ export default function AdminDashboard() {
           {activeTab === 'services' && <ServicesView isOwner={isOwner} />}
           {activeTab === 'equipe'   && <TeamView />}
           {activeTab === 'horaires' && <HoursView />}
-          {activeTab === 'qr'       && <QRView />}
-          {activeTab === 'compte'   && <AccountView email={session?.user?.email} />}
+          {activeTab === 'qr'         && <QRView />}
+          {activeTab === 'historique' && <HistoryView />}
+          {activeTab === 'compte'     && <AccountView email={session?.user?.email} />}
         </Suspense>
       </main>
     </div>

@@ -154,14 +154,6 @@ export function BookingCard({ booking, onStatusChange, onMove, barberName }) {
 
       {!cancelled && (
         <div className="flex items-center gap-1.5 px-4 py-2 border-t border-ivory-border/60 flex-wrap">
-          {booking.status === 'pending' && (
-            <button
-              onClick={() => onStatusChange(booking.id, 'confirmed')}
-              className="text-xs px-2.5 py-1 rounded-lg bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 transition-colors"
-            >
-              Confirmer
-            </button>
-          )}
           <button
             onClick={() => onStatusChange(booking.id, 'cancelled')}
             className="text-xs px-2.5 py-1 rounded-lg bg-bordeaux/10 text-bordeaux border border-bordeaux/25 hover:bg-bordeaux/20 transition-colors"
