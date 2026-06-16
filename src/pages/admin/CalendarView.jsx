@@ -190,12 +190,15 @@ function CreateBookingForm({ date, defaultBarberId, barbers, onSuccess, onCancel
 
 // ─── AgendaPanel (owner day view) ────────────────────────────────────────────
 
-function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCreated, onStatusChange, onMove }) {
+function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCreated, onStatusChange, onMove, isPast }) {
   const [creating,     setCreating]     = useState(false)
   const [selectedSlot, setSelectedSlot] = useState(null)
 
   const label  = localDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })
-  const active = useMemo(() => bookings.filter(b => b.status !== 'cancelled').length, [bookings])
+  const today  = new Date().toISOString().slice(0, 10)
+  const active = useMemo(() => bookings.filter(b =>
+    b.status !== 'cancelled' && date >= today
+  ).length, [bookings, date])
 
   // One booking per slot max (UNIQUE constraint on booking_date+time)
   const bookingBySlot = useMemo(() => {
@@ -224,7 +227,7 @@ function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCre
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {!creating && (
+          {!creating && !isPast && (
             <button
               onClick={() => setCreating(true)}
               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-vip-black text-ivory hover:bg-bordeaux transition-colors font-medium"
@@ -540,6 +543,7 @@ export default function CalendarView({ barberId, isOwner }) {
               ).length
               const isToday    = dateStr === today
               const isSelected = dateStr === selectedDate && currentMonth
+              const isPast     = dateStr < today && !isToday
 
               return (
                 <button
@@ -555,7 +559,7 @@ export default function CalendarView({ barberId, isOwner }) {
                 >
                   <span className={`text-sm font-medium leading-none ${
                     isSelected ? 'text-ivory' : isToday ? 'text-gold' : 'text-vip-black'
-                  }`}>
+                  } ${isPast && !isSelected ? 'opacity-50' : ''}`}>
                     {num}
                   </span>
                   {activeCount > 0 && currentMonth && (
@@ -593,6 +597,7 @@ export default function CalendarView({ barberId, isOwner }) {
                   onCreated={() => fetchMonth(year, month)}
                   onStatusChange={handleStatusChange}
                   onMove={setMovingBooking}
+                  isPast={selectedDate < today}
                 />
               ) : (
                 // Non-owner: existing DayPanel unchanged
