@@ -329,7 +329,13 @@ export default function CalendarView({ barberId, isOwner }) {
       .eq('active', true)
       .order('name')
       .then(({ data }) => {
-        const withColors = (data || []).map((b, i) => ({
+        const withColors = (data || [])
+          .sort((a, b) => {
+            if (a.id === barberId) return -1
+            if (b.id === barberId) return 1
+            return a.name.localeCompare(b.name)
+          })
+          .map((b, i) => ({
           ...b,
           color: BARBER_COLORS[i % BARBER_COLORS.length],
         }))
