@@ -190,8 +190,9 @@ function CreateBookingForm({ date, defaultBarberId, barbers, onSuccess, onCancel
 
 // ─── AgendaPanel (owner day view) ────────────────────────────────────────────
 
-function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCreated }) {
-  const [creating, setCreating] = useState(false)
+function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCreated, onStatusChange, onMove }) {
+  const [creating,     setCreating]     = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState(null)
 
   const label  = localDateLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })
   const active = useMemo(() => bookings.filter(b => b.status !== 'cancelled').length, [bookings])
@@ -269,21 +270,65 @@ function AgendaPanel({ date, bookings, barbers, selectedBarberId, onClose, onCre
               {/* Slot content */}
               <div className="flex-1 py-1 pr-3 pl-1">
                 {booking ? (
-                  <div
-                    className={`rounded-lg px-2.5 py-1.5 min-h-[38px] flex flex-col justify-center ${booking.status === 'cancelled' ? 'opacity-40' : ''}`}
-                    style={{ backgroundColor: `${color}18`, borderLeft: `3px solid ${color}` }}
-                  >
-                    <p className="text-vip-black font-semibold text-xs leading-tight font-playfair">
-                      {booking.client_name}
-                    </p>
-                    <p className="text-warm-gray text-[10px] leading-tight mt-0.5">
-                      {booking.services?.name}
-                      {booking.services?.duration_minutes && ` · ${booking.services.duration_minutes} min`}
-                    </p>
-                    {booking.status === 'cancelled' && (
-                      <p className="text-bordeaux text-[10px] mt-0.5">Annulé</p>
+                  <>
+                    <div
+                      className={`rounded-lg px-2.5 py-1.5 min-h-[38px] flex flex-col justify-center cursor-pointer ${booking.status === 'cancelled' ? 'opacity-40' : ''}`}
+                      style={{ backgroundColor: `${color}18`, borderLeft: `3px solid ${color}` }}
+                      onClick={() => setSelectedSlot(prev => prev === slot ? null : slot)}
+                    >
+                      <p className="text-vip-black font-semibold text-xs leading-tight font-playfair">
+                        {booking.client_name}
+                      </p>
+                      <p className="text-warm-gray text-[10px] leading-tight mt-0.5">
+                        {booking.services?.name}
+                        {booking.services?.duration_minutes && ` · ${booking.services.duration_minutes} min`}
+                      </p>
+                      {booking.status === 'cancelled' && (
+                        <p className="text-bordeaux text-[10px] mt-0.5">Annulé</p>
+                      )}
+                    </div>
+                    {selectedSlot === slot && (
+                      <div className="bg-white border border-ivory-border rounded-lg p-3 mt-1">
+                        <p className="font-playfair font-semibold text-sm text-vip-black">{booking.client_name}</p>
+                        <a href={`tel:${booking.client_phone}`} className="text-xs text-gold block mt-0.5">{booking.client_phone}</a>
+                        <p className="text-xs text-warm-gray mt-0.5">
+                          {booking.services?.name}
+                          {booking.services?.duration_minutes && ` · ${booking.services.duration_minutes} min`}
+                        </p>
+                        <span className={`inline-block mt-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          booking.status === 'confirmed' ? 'bg-green-500/10 text-green-600 border border-green-500/30' :
+                          booking.status === 'cancelled' ? 'bg-bordeaux/10 text-bordeaux border border-bordeaux/25' :
+                          'bg-ivory-dark text-warm-gray border border-ivory-border'
+                        }`}>
+                          {booking.status === 'confirmed' ? 'Confirmé' : booking.status === 'cancelled' ? 'Annulé' : 'En attente'}
+                        </span>
+                        <div className="flex gap-2 mt-2">
+                          {booking.status === 'pending' && (
+                            <button
+                              onClick={() => onStatusChange(booking.id, 'confirmed')}
+                              className="text-xs px-2.5 py-1.5 rounded-lg bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20 transition-colors font-medium"
+                            >
+                              Confirmer
+                            </button>
+                          )}
+                          {booking.status !== 'cancelled' && (
+                            <button
+                              onClick={() => onStatusChange(booking.id, 'cancelled')}
+                              className="text-xs px-2.5 py-1.5 rounded-lg bg-bordeaux/10 text-bordeaux border border-bordeaux/25 hover:bg-bordeaux/20 transition-colors font-medium"
+                            >
+                              Annuler
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onMove(booking)}
+                            className="text-xs px-2.5 py-1.5 rounded-lg bg-white border border-ivory-border text-warm-gray hover:text-vip-black hover:border-warm-gray/50 transition-colors font-medium"
+                          >
+                            Déplacer
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  </div>
+                  </>
                 ) : (
                   /* Empty slot — subtle top border on :00 for visual rhythm */
                   <div className={`min-h-[38px] rounded-sm ${isHour ? 'border-t border-ivory-border/30' : ''}`} />
@@ -544,6 +589,8 @@ export default function CalendarView({ barberId, isOwner }) {
                   selectedBarberId={selectedBarberId}
                   onClose={() => setSelectedDate(null)}
                   onCreated={() => fetchMonth(year, month)}
+                  onStatusChange={handleStatusChange}
+                  onMove={setMovingBooking}
                 />
               ) : (
                 // Non-owner: existing DayPanel unchanged
