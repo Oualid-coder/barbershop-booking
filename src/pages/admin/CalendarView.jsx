@@ -535,7 +535,9 @@ export default function CalendarView({ barberId, isOwner }) {
           <div className="grid grid-cols-7 gap-px bg-ivory-border rounded-xl overflow-hidden border border-ivory-border">
             {calendarDays.map(({ dateStr, num, currentMonth }) => {
               const dayBookings = bookingsByDate[dateStr] || []
-              const activeCount = dayBookings.filter(b => b.status !== 'cancelled').length
+              const activeCount = dayBookings.filter(b =>
+                b.status !== 'cancelled' && b.booking_date >= today
+              ).length
               const isToday    = dateStr === today
               const isSelected = dateStr === selectedDate && currentMonth
 
