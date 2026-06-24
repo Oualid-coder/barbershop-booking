@@ -1318,3 +1318,14 @@ Retiré `{barber.role !== 'owner' && ...}` autour du Toggle dans `BarberRow`. L'
 Un barbershop génère < 1000 résa/an. Charger tout d'un coup + filtrer JS est plus simple et aussi rapide que la pagination PostgreSQL pour ce volume.
 
 **Position dans OWNER_TABS →** Entre 'qr' et 'compte' — vue consultation, pas de gestion active.
+
+---
+
+## Rate limiting téléphone — retiré (migration 016)
+
+**Décision →** Suppression du trigger `trg_booking_rate_limit` et de la fonction `check_booking_rate_limit()`.
+
+**Pourquoi retiré →**
+- Faux positifs : les numéros ne sont pas normalisés côté client (espaces, formats variés) — deux réservations du même numéro avec formatage différent passaient, une même famille avec un seul téléphone était bloquée après 3 créneaux.
+- Volume salon : < 50 résa/mois — le vecteur de spam est peu attractif et le préjudice limité.
+- La RLS `bookings_public_insert` (status = 'confirmed') et la contrainte `UNIQUE(booking_date, booking_time)` restent les vraies protections contre les doublons et les insertions malveillantes.
