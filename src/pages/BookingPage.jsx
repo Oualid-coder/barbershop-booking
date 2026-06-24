@@ -213,45 +213,69 @@ export default function BookingPage() {
   async function handleSubmit() {
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
+
+    if (!selectedService || !selectedDate || !selectedTime) {
+      setSubmitError('Une erreur est survenue, veuillez recommencer depuis le début.')
+      return
+    }
+
     setErrors({})
     setSubmitting(true)
     setSubmitError(null)
 
-    const { error } = await supabase.from('bookings').insert({
-      service_id:   selectedService.id,
-      barber_id:    selectedBarber?.id ?? null,
-      client_name:  clientName.trim(),
-      client_phone: clientPhone.trim(),
-      booking_date: selectedDate,
-      booking_time: selectedTime,
-      status:       'confirmed',
-    })
+    const normalizedPhone = clientPhone.trim().replace(/\s+/g, '')
 
-    setSubmitting(false)
+    try {
+      const insertPromise = supabase.from('bookings').insert({
+        service_id:   selectedService.id,
+        barber_id:    selectedBarber?.id ?? null,
+        client_name:  clientName.trim(),
+        client_phone: normalizedPhone,
+        booking_date: selectedDate,
+        booking_time: selectedTime,
+        status:       'confirmed',
+      })
 
-    if (error) {
-      if (error.code === '23505') {
-        setSubmitError("Ce créneau vient d'être réservé. Veuillez en choisir un autre.")
-        setStep(3)
-        setSelectedTime(null)
-      } else if (error.message?.includes('RATE_LIMIT_EXCEEDED')) {
-        setSubmitError('Vous avez atteint la limite de réservations (3 par 24h). Contactez le salon directement.')
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT')), 15000)
+      )
+
+      const { error } = await Promise.race([insertPromise, timeoutPromise])
+
+      if (error) {
+        if (error.code === '23505') {
+          setSubmitError("Ce créneau vient d'être réservé. Veuillez en choisir un autre.")
+          setStep(3)
+          setSelectedTime(null)
+        } else if (error.message?.includes('RATE_LIMIT_EXCEEDED')) {
+          setSubmitError('Vous avez atteint la limite de réservations (3 par 24h). Contactez le salon directement.')
+        } else {
+          console.error(error)
+          setSubmitError('Une erreur est survenue. Veuillez réessayer.')
+        }
+        return
+      }
+
+      setBooked(true)
+
+      notifyNewBooking({
+        barber_id:    selectedBarber?.id ?? null,
+        client_name:  clientName.trim(),
+        client_phone: normalizedPhone,
+        service_name: selectedService.name,
+        booking_date: selectedDate,
+        booking_time: selectedTime,
+      })
+    } catch (e) {
+      if (e.message === 'TIMEOUT') {
+        setSubmitError('La connexion est trop lente. Vérifiez votre réseau et réessayez.')
       } else {
+        console.error(e)
         setSubmitError('Une erreur est survenue. Veuillez réessayer.')
       }
-      return
+    } finally {
+      setSubmitting(false)
     }
-
-    setBooked(true)
-
-    notifyNewBooking({
-      barber_id:    selectedBarber?.id ?? null,
-      client_name:  clientName.trim(),
-      client_phone: clientPhone.trim(),
-      service_name: selectedService.name,
-      booking_date: selectedDate,
-      booking_time: selectedTime,
-    })
   }
 
   function handleReset() {
