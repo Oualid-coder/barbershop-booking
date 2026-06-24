@@ -114,6 +114,37 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON services, bookings, business_hours, bloc
 
 **Leçon** : toujours inclure les GRANT dans les migrations SQL manuelles. Le dashboard Supabase les applique automatiquement, pas le SQL Editor raw.
 
+---
+
+### Bug réservation silencieuse — investigation et fix (2026-06-22/25)
+
+**Symptôme** : Megdoud Zoheir (Android Chrome, 4G instable) a obtenu "Une erreur est survenue. Veuillez réessayer." en tentant de réserver depuis la rue. Aucune réservation créée en base.
+
+**Investigation** :
+- Logs Supabase Edge Functions : hors fenêtre 24h gratuite, non disponibles.
+- Vérification en base : aucune résa existante sur le créneau visé → pas de conflit UNIQUE `23505`.
+- Rate limit téléphone : résa précédente trop ancienne → pas de `RATE_LIMIT_EXCEEDED`.
+- Cause réseau probable : requête fetch bloquée ou rejetée sur connexion 4G dégradée.
+
+**Causes racines identifiées (audit `BookingPage.jsx`) :**
+- Pas de `try/finally` → `setSubmitting(false)` jamais appelé si la promesse rejette ou freeze → bouton bloqué définitivement sans message.
+- `selectedService.id` accédé sans null-check → `TypeError` silencieuse si état corrompu → même effet que le cas précédent.
+- `clientPhone.trim()` seulement → espaces internes conservés → bypass du rate limit par reformatage du numéro (`"06 12..."` vs `"0612..."`).
+- Aucun timeout sur `supabase.from('bookings').insert()` → réseau qui freeze = UX bloquée indéfiniment.
+
+**Fixes appliqués dans `BookingPage.jsx` :**
+1. `try/finally` autour du bloc insert → `setSubmitting(false)` garanti dans tous les cas.
+2. Guard null en début de `handleSubmit` : `if (!selectedService || !selectedDate || !selectedTime)` → message clair + return immédiat.
+3. Normalisation téléphone : `clientPhone.trim().replace(/\s+/g, '')` → `normalizedPhone` envoyé à Supabase et à `notifyNewBooking`.
+4. Timeout 15 s : `Promise.race([insertPromise, timeoutPromise])` → message dédié "connexion trop lente".
+5. `console.error(error)` dans le `else` catch-all et dans le `catch` JS → erreur brute visible en DevTools.
+
+**Décision complémentaire — suppression du rate limit téléphone (migration 016) :**
+Le trigger `trg_booking_rate_limit` (3 résa/24h par téléphone) est jugé trop restrictif pour le volume réel du salon et générateur de faux positifs (famille partageant un numéro, client qui annule et re-réserve). Supprimé via migration 016.
+
+**Double-clic (non corrigé, défense en profondeur suffisante) :**
+Le bouton est `disabled={submitting}` pendant l'envoi → protection primaire. En cas de race condition edge-case, la contrainte `UNIQUE (booking_date, booking_time)` en base empêche tout doublon réel (code `23505` géré dans le `if (error)`). Pas de fix supplémentaire nécessaire.
+
 ## Choix d'architecture & justifications
 
 ### Vue Calendrier — algorithme et choix UX
