@@ -1,0 +1,16 @@
+{
+  "name": "VIP Cut's Admin",
+  "short_name": "VIP Admin",
+  "start_url": "/admin/login",
+  "display": "standalone",
+  "background_color": "#F7F2E8",
+  "theme_color": "#F7F2E8",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

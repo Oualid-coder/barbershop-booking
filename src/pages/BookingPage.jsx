@@ -251,7 +251,7 @@ export default function BookingPage() {
           setSubmitError('Vous avez atteint la limite de réservations (3 par 24h). Contactez le salon directement.')
         } else {
           console.error(error)
-          setSubmitError('Une erreur est survenue. Veuillez réessayer.')
+          setSubmitError('Une erreur est survenue. Réessayez, ou appelez le salon au 07 67 73 67 09 pour réserver directement.')
         }
         return
       }
@@ -271,7 +271,7 @@ export default function BookingPage() {
         setSubmitError('La connexion est trop lente. Vérifiez votre réseau et réessayez.')
       } else {
         console.error(e)
-        setSubmitError('Une erreur est survenue. Veuillez réessayer.')
+        setSubmitError('Une erreur est survenue. Réessayez, ou appelez le salon au 07 67 73 67 09 pour réserver directement.')
       }
     } finally {
       setSubmitting(false)

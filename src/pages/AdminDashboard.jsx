@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { initOneSignal, getNotificationPermission, requestPushPermission } from '../lib/onesignal'
@@ -137,8 +137,12 @@ function TodayView({ barberId, isOwner }) {
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
+const ALL_TAB_IDS = new Set([...BASE_TABS, ...OWNER_TABS].map(t => t.id))
+
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab]   = useState('today')
+  const [searchParams]              = useSearchParams()
+  const initialTab = ALL_TAB_IDS.has(searchParams.get('tab')) ? searchParams.get('tab') : 'today'
+  const [activeTab, setActiveTab]   = useState(initialTab)
   const [barber, setBarber]         = useState(undefined)
   const [notifPerm, setNotifPerm]   = useState(getNotificationPermission)
   const { session }  = useAuth()
@@ -276,7 +280,7 @@ export default function AdminDashboard() {
         {TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); navigate('?tab=' + tab.id, { replace: true }) }}
             className={`shrink-0 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === tab.id
                 ? 'bg-ivory text-vip-black'

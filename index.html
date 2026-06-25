@@ -7,7 +7,12 @@
     <title>VIP Cut's — Coiffeur Barbier Paris 18e</title>
     <meta name="description" content="Réservez votre coupe chez VIP Cut's, coiffeur barbier au 86 rue Joseph de Maistre, Paris 18e." />
     <meta name="theme-color" content="#F7F2E8" />
-    <link rel="manifest" href="/manifest.json" />
+    <script>
+      var l = document.createElement('link');
+      l.rel = 'manifest';
+      l.href = location.pathname.includes('/admin') ? '/manifest-admin.json' : '/manifest.json';
+      document.currentScript.replaceWith(l);
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="VIP Cut's" />
